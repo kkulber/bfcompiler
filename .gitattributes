@@ -1,0 +1,7 @@
+# Recognize file types
+*.py linguist-language=Python
+*.c linguist-language=C
+*.bf linguist-language=Brainfuck
+
+# Ignore generated code
+/generated/* linguist-vendored

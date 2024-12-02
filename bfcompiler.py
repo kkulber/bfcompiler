@@ -15,7 +15,7 @@ class bf_compiler:
         return self.code
     
     def algorithm(self, filename):
-        file = open(f"algorithms/{filename}.bfa", "r")
+        file = open(f"algorithms/{filename}.bf", "r")
         self.code += file.readlines()[0].strip()
         file.close()
         

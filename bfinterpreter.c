@@ -2,8 +2,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include <unistd.h>
-
 #define TAPE_SIZE 30000
 
 unsigned char tape[TAPE_SIZE];
@@ -32,8 +30,7 @@ int main(int argc, char* argv[]){
 	fgets(instrv, instrc, file); 
 	fclose(file);
 	
-	for (int i = 0; i < instrc-1; i++){
-		//usleep(20000);
+	for (int i = 0; i < instrc-1; i++;){
 		switch(instrv[i]){
 			case '+':
 				tape[pointer]++;

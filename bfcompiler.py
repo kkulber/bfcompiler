@@ -116,10 +116,12 @@ class bf_compiler:
             self.code += abs(diff) * ">"
         else:
             self.code += abs(diff) * "<"
+	return cell
             
     def reset(self, cell):
         self.goto(cell)
         self.code += "[-]"
+	return cell
         
     def set(self, cell, value, reset=True):
         if type(value) == str:
@@ -131,6 +133,7 @@ class bf_compiler:
             self.code += value * "+"
         else:
             self.code += (256 - value) * "-"
+	return cell
           
     def move(self, from_, to, reset=True):
         if reset:
@@ -140,6 +143,7 @@ class bf_compiler:
         self.inc(to)
         self.goto(from_)
         self.code += "]"
+	return to
     
     def setVar(self, to, from_, reset=True):
         if reset:
@@ -153,6 +157,7 @@ class bf_compiler:
         self.code += "]"
         self.move(temp, from_, reset=False)
         self.free()
+	return to
         
     def inc(self, cell, value=1):
         self.goto(cell)
@@ -337,7 +342,19 @@ class bf_compiler:
         self.free(4)
         return result
     
-    
+    def gtEq(self, cell, value):
+        pass
+    def gtEqVar(self, cell1, cell2):
+        pass
+    def lt(self, cell, value):
+        pass
+    def ltVar(self, cell1, cell2):
+        pass
+    def ltEq(self, cell, value):
+        pass
+    def ltEq(self, cell1, cell2):
+        pass
+        
     # Control Flow
     
     def if_(self, cell, do):
@@ -435,7 +452,6 @@ class bf_compiler:
         else:
             self.goto(cell)
             self.code += "."
-            
         return cell
     
     def printStr(self, string):
@@ -452,6 +468,7 @@ class bf_compiler:
         for cell in self.get(arr):
             self.goto(cell)
             self.print(cell, checkZero)
+        return arr
             
     def input(self):
         result = self.malloc()
@@ -476,19 +493,23 @@ class bf_compiler:
     def resetArr(self, arr):
         for cell in self.get(arr):
             self.reset(cell)
+        return arr
             
     def setArr(self, arr, values):
         for i, value in enumerate(values):
             if value != 0:
                 self.set(arr[i], value, reset=False)
+        return arr
                 
     def moveArr(self, arr1, arr2, reset=True):
         for i in range(self.length(arr2)):
             self.move(self.index(arr1, i), self.index(arr2, i), reset=reset)
+        return arr2
     
     def copyArr(self, arr1, arr2, reset=True):
         for i in range(self.length(arr2)):
             self.setVar(self.index(arr2, i), self.index(arr1, i), reset=reset)
+        return arr2
             
     def getIndex(self, arr, index):
         result, temp0, temp1, temp2 = self.malloc(4)
@@ -508,6 +529,7 @@ class bf_compiler:
         self.set(temp, value)
         self.setIndexVar(arr, index, temp)
         self.free(reset=True)
+        return arr 
         
     def setIndexVar(self, arr, index, data):
         temp0, temp1, temp2, temp3 = self.malloc(4)
@@ -521,20 +543,16 @@ class bf_compiler:
         self.pointer = temp2
         self.moveArr(tempArr, arr)
         self.free(self.length(arr) + 4)
+        return arr
     
     def concat(self, arr1, arr2):
         result = self.malloc(self.length(arr1) + self.length(arr2))
         self.copyArr(arr1, result[:self.length(arr1)], reset=False)
         self.copyArr(arr2, result[self.length(arr1):], reset=False)
         return result
-        
-    def slice(self, arr, start, end=None):
-        if end == None:
-            end = self.length(arr)
-        result = self.malloc(end - start)
-        self.copyArr(self.get(arr)[start:end], result, reset=False)
-        return result
     
+    def concatStr(self, arr, string):
+        pass
     
     # Datatype Conversion
     

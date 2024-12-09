@@ -1,2 +1,4 @@
 bfinterpreter
+generated/compiled.bf
 test
+*.swp

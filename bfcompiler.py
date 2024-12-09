@@ -116,12 +116,12 @@ class bf_compiler:
             self.code += abs(diff) * ">"
         else:
             self.code += abs(diff) * "<"
-	return cell
+        return cell
             
     def reset(self, cell):
         self.goto(cell)
         self.code += "[-]"
-	return cell
+        return cell
         
     def set(self, cell, value, reset=True):
         if type(value) == str:
@@ -133,7 +133,7 @@ class bf_compiler:
             self.code += value * "+"
         else:
             self.code += (256 - value) * "-"
-	return cell
+        return cell
           
     def move(self, from_, to, reset=True):
         if reset:
@@ -143,7 +143,7 @@ class bf_compiler:
         self.inc(to)
         self.goto(from_)
         self.code += "]"
-	return to
+        return to
     
     def setVar(self, to, from_, reset=True):
         if reset:
@@ -157,7 +157,7 @@ class bf_compiler:
         self.code += "]"
         self.move(temp, from_, reset=False)
         self.free()
-	return to
+        return to
         
     def inc(self, cell, value=1):
         self.goto(cell)

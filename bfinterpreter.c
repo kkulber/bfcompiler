@@ -85,8 +85,6 @@ int main(int argc, char* argv[]){
 		}
 	}
 	free(instrv);
-
-	printf("\n%s halted.\n", argv[1]);
 	
 	return 1;
 }

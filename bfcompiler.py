@@ -25,6 +25,8 @@ class bf_compiler:
     def get(self, var):
         if type(var) != str:
             return var
+        if var not in self.vars:
+            return None
         return self.vars[var]
     
     def index(self, arr, index):
@@ -407,15 +409,15 @@ class bf_compiler:
         
     def for_(self, start, cond, loop):
         cell, temp = self.malloc(2)
-        start(cell)
+        start(param=cell)
         memState = self.saveMemState()
-        self.move(cond(cell), temp)
+        self.move(cond(param=cell), temp)
         self.loadMemState(memState)
         self.goto(temp)
         self.code += "["
-        loop(cell)
+        loop(param=cell)
         self.loadMemState(memState)
-        self.move(cond(cell), temp)
+        self.move(cond(param=cell), temp)
         self.loadMemState(memState)
         self.goto(temp)
         self.code += "]"
@@ -437,7 +439,7 @@ class bf_compiler:
     def foreach(self, arr, do):
         memState = self.saveMemState()
         for cell in self.get(arr):
-            do(cell)
+            do(param=cell)
             self.loadMemState(memState)
     
     # IO
@@ -480,10 +482,10 @@ class bf_compiler:
         result = self.malloc(len_)
         temp = self.malloc()
         self.set(temp, 1)
-        def do(cell):
-            self.if_(temp, lambda: self.move(self.input(), cell))
-            self.if_(self.eq(cell, term), lambda: (self.reset(temp),
-                                                   self.reset(cell)))
+        def do(param):
+            self.if_(temp, lambda: self.move(self.input(), param))
+            self.if_(self.eq(param, term), lambda: (self.reset(temp),
+                                                   self.reset(param)))
         self.foreach(result, do)
         self.free(reset=True)
         return result
@@ -497,8 +499,7 @@ class bf_compiler:
             
     def setArr(self, arr, values):
         for i, value in enumerate(values):
-            if value != 0:
-                self.set(arr[i], value, reset=False)
+            self.set(self.index(arr, i), value)
         return arr
                 
     def moveArr(self, arr1, arr2, reset=True):

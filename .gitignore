@@ -1,4 +1,5 @@
 bfinterpreter
-generated/compiled.bf
 test
+generated/compiled.bf
+run.sh
 *.swp

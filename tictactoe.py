@@ -14,11 +14,11 @@ def drawBoard():
     bf.reset("columnCounter")
     bf.printStr("\n")
     # Malt ein Feld, zählt die Anzahl an Spalten und geht in die nächste Zeile, wenn es drei sind
-    def drawField(cell):
+    def drawField(param):
         bf.if_(bf.eq("columnCounter", 3), lambda: (bf.reset("columnCounter"),
                                                    bf.printStr("\n------\n")))
-        bf.ifelse(bf.eq(cell, O), lambda: bf.printStr("O"),
-                  lambda: bf.ifelse(bf.eq(cell, X), lambda: bf.printStr("X"),
+        bf.ifelse(bf.eq(param, O), lambda: bf.printStr("O"),
+                  lambda: bf.ifelse(bf.eq(param, X), lambda: bf.printStr("X"),
                                                     lambda: bf.printStr(" ")))
         bf.printStr("|")
         bf.inc("columnCounter")
@@ -57,8 +57,8 @@ def checkWin():
 bf.def_("draw", False)
 def checkDraw():
     bf.set("draw", True)
-    def checkEmpty(cell):
-        bf.if_(bf.eq(cell, EMPTY),lambda: bf.set("draw", False))
+    def checkEmpty(param):
+        bf.if_(bf.eq(param, EMPTY),lambda: bf.set("draw", False))
     bf.foreach("board", checkEmpty)
     
 # Einleitungstext

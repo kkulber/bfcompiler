@@ -494,16 +494,9 @@ class bf_compiler:
     
     # IO
     
-    def print(self, cell, checkZero=True):
-        if checkZero:
-            temp = self.malloc()
-            self.setVar(temp, cell)
-            self.goto(temp)
-            self.code += "[.[-]]"
-            self.free()
-        else:
-            self.goto(cell)
-            self.code += "."
+    def print(self, cell):
+        self.goto(cell)
+        self.code += "."
         return cell
     
     def printStr(self, string):
@@ -513,31 +506,41 @@ class bf_compiler:
             diff = ord(char) - lastchar
             lastchar = ord(char)
             self.change(temp, diff)
-            self.print(temp, checkZero=False)
+            self.print(temp)
         self.free(reset=True)
     
-    def printArr(self, arr, checkZero=True):
+    def printArr(self, arr):
         for cell in self.get(arr):
             self.goto(cell)
-            self.print(cell, checkZero)
+            self.print(cell)
         return arr
             
-    def input(self):
-        result = self.malloc()
+    def input(self, single=True):
+        result, newline = self.malloc(2)
         self.goto(result)
         self.code += ","
+        self.goto(newline)
+        self.code += ","
+        self.free(reset=True)
         return result
     
-    def inputArr(self, len_=3, term=" "):
+    def inputArr(self, len_=3):
         result = self.malloc(len_)
-        temp = self.malloc()
+        temp, newline = self.malloc(2)
         self.set(temp, 1)
         def do(param):
-            self.if_(temp, lambda: self.move(self.input(), param))
-            self.if_(self.eq(param, term), lambda: (self.reset(temp),
+            def take_input():
+                self.goto(param)
+                self.code += ","
+            self.if_(temp, take_input)
+            self.if_(self.eq(param, "\n"), lambda: (self.reset(temp),
                                                    self.reset(param)))
         self.foreach(result, do)
-        self.free(reset=True)
+        def catch_newline():
+            self.goto(newline)
+            self.code += ","
+        self.if_(temp, catch_newline)
+        self.free(2, reset=True)
         return result
 
     # Arrays

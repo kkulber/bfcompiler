@@ -30,7 +30,7 @@ int main(int argc, char* argv[]){
 	fgets(instrv, instrc, file); 
 	fclose(file);
 	
-	for (int i = 0; i < instrc-1; i++;){
+	for (int i = 0; i < instrc-1; i++){
 		switch(instrv[i]){
 			case '+':
 				tape[pointer]++;
@@ -48,9 +48,7 @@ int main(int argc, char* argv[]){
 				printf("%c", tape[pointer]);
 				break;
 			case ',':
-				do{
-					tape[pointer] = getchar();
-				} while (tape[pointer] == '\n');
+				tape[pointer] = getchar();
 				break;
 			case '[':
 				if (tape[pointer] == 0){
@@ -85,6 +83,6 @@ int main(int argc, char* argv[]){
 		}
 	}
 	free(instrv);
-	
+	printf("\n");	
 	return 1;
 }

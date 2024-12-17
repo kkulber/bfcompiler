@@ -2,7 +2,10 @@ from bfcompiler import *
 
 bf = bf_compiler()
 
-LENGTH = 7
+LENGTH = 5
+
+# Nennt Anzahl an Elementen
+bf.printStr(f"Bitte geben Sie {LENGTH} Zahlen an:\n")
 
 # Definiere die Liste
 bf.defArr("list", LENGTH)

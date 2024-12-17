@@ -6,14 +6,59 @@ class bf_compiler:
         self.used_mem = 0
         self.used_temp = 0
     
-    def result(self, filename):
+    def result(self, filename, trimmed=False):
+        if trimmed:
+            self.trim()
         print(f"Program compiled successfully!\nGenerated brainf*ck program has a length of {len(self.code)} instructions.")
         file = open(f"generated/{filename}.bf", "w")
         file.write(self.code)
         file.close()
         print(f"Saved to generated/{filename}.bf")
         return self.code
-    
+
+    def trim(self):
+        # Remove leading pointer moves
+        i = 0
+        while i < len(self.code):
+            if self.code[i] not in "<>":
+                self.code = self.code[i:]
+                break
+            i += 1
+       
+        # Remove redundant code after last ouput
+        if self.code.rfind(".") == -1:
+            self.code = ""
+            return
+        i = 0
+        depth = 0
+        while i < len(self.code):
+            if i >= self.code.rfind(".") and depth == 0:
+                self.code = self.code[:i]
+                break
+            if self.code[i] == "[":
+                depth += 1
+            elif self.code[i] == "]":
+                depth -= 1
+            i += 1
+       	 
+        # Remove unenterable brackets
+        while self.code.find("][") != -1:
+            i = self.code.find("][") + 2
+            depth = 1
+            while depth != 0:
+                if self.code[i] == "[":
+                    depth += 1
+                elif self.code[i] == "]":
+                    depth -= 1
+                i += 1
+            self.code = self.code[:self.code.find("][")+1] + self.code[i:]
+
+        # Remove Operations that undo themselves
+        for seq in "+-", "-+", "<>", "><":
+            while self.code.find(seq) != -1:
+                self.code = self.code.replace(seq, "") 
+        
+
     def algorithm(self, filename):
         file = open(f"algorithms/{filename}.bf", "r")
         self.code += file.readlines()[0].strip()
@@ -28,7 +73,12 @@ class bf_compiler:
         if var not in self.vars:
             return None
         return self.vars[var]
-    
+
+    def get_name(self, index):
+        if type(index) == str:
+            return index
+        return next((key for key, value in self.vars.items() if value == index), None)
+         
     def index(self, arr, index):
         if type(arr) != str:
             return arr[index]
@@ -95,8 +145,8 @@ class bf_compiler:
                 self.reset(cell)
         self.used_temp -= num
         
-    def clean(self):
-        for cell in range(-self.used_temp, 0):
+    def clean(self, preserve=0):
+        for cell in range(-self.used_temp, -preserve):
             self.reset(cell)
         self.used_temp = 0
         

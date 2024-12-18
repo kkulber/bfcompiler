@@ -6,7 +6,7 @@ class bf_compiler:
         self.used_mem = 0
         self.used_temp = 0
     
-    def result(self, filename, trimmed=False):
+    def result(self, filename, trimmed=True):
         if trimmed:
             self.trim()
         print(f"Program compiled successfully!\nGenerated brainf*ck program has a length of {len(self.code)} instructions.")
@@ -26,10 +26,14 @@ class bf_compiler:
             i += 1
        
         # Remove redundant code after last ouput
+        i = 0
+
         if self.code.rfind(".") == -1:
             self.code = ""
             return
-        i = 0
+        elif self.code.rfind(".") == len(self.code)-1:
+            i = len(self.code)         
+
         depth = 0
         while i < len(self.code):
             if i >= self.code.rfind(".") and depth == 0:
@@ -40,7 +44,7 @@ class bf_compiler:
             elif self.code[i] == "]":
                 depth -= 1
             i += 1
-       	 
+
         # Remove unenterable brackets
         while self.code.find("][") != -1:
             i = self.code.find("][") + 2

@@ -14,3 +14,4 @@ All five sample programs were generated using the compiler and contain code frag
  
 ## bfcolang (WIP) ##
 A minimalistic, operator-based language for using the compiler more easily. In the works.
+Small sample is available.

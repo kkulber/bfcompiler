@@ -1,0 +1,4 @@
+str @ message = "Abstraktion mit brainf*ck\n";
+*! {
+	.message;
+};

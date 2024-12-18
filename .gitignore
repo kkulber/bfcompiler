@@ -1,6 +1,6 @@
 __pycache__/
 bfinterpreter
 test.bfcl
-generated/compiled.bf
+generated/test.bf
 run.sh
 *.swp

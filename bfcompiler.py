@@ -25,19 +25,17 @@ class bf_compiler:
                 break
             i += 1
        
-        # Remove redundant code after last ouput
-        i = 0
-
-        if self.code.rfind(".") == -1:
+        # Remove redundant code after last input/ouput
+        find = max(self.code.rfind("."), self.code.rfind(","))
+        if find == -1:
             self.code = ""
             return
-        elif self.code.rfind(".") == len(self.code)-1:
-            i = len(self.code)         
 
+        i = 0
         depth = 0
         while i < len(self.code):
-            if i >= self.code.rfind(".") and depth == 0:
-                self.code = self.code[:i]
+            if i >= find and depth == 0:
+                self.code = self.code[:i+1]
                 break
             if self.code[i] == "[":
                 depth += 1

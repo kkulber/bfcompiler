@@ -247,13 +247,16 @@ def eval_expression(expression, tokens, bf, params):
 	def get_type(var):
 		if type(var) == str:
 			return var_type[var]
-		elif type(var) in (int, tuple):
+		elif type(var) == int:
 			if bf.get_name(var) == None:
-				if var in cell_type:
-					return cell_type[var]
-				return params[var]
-			return var_type[bf.get_name(var)]
-			
+				return cell_type[var]
+			return bf.get_name(var)
+	
+	def get_func(func):
+		if type(func) == int:
+			return tokens[func]
+		return tokens[var_func[func]]
+
 	# NOP return expression
 	if type(expression) == tuple:
 		return expression
@@ -271,20 +274,19 @@ def eval_expression(expression, tokens, bf, params):
 	argv = tuple([t[1] for t in expression[1:]])
 	if op == "@":
 		if argt == ("type", "var"):
-			var_type[bf.get_name(argv[1])] = argv[0]
-			if argv[0] == "int" or argv[0] == "char":
+			var_type[argv[1]] = argv[0]
+			if argv[0] == "int" or argv[0] == "char": 
 				return "var", bf.def_(argv[1])
 			elif argv[0] == "arr" or argv[0] == "str" \
 					or argv[0] == "func":
 				return "var", argv[1]
 	elif op == ">@":
 		if argt == ("type", "int", "var"):
-			var_type[bf.get_name(argv[2])] = argv[0]
+			var_type[argv[2]] = argv[0]
 			return "var", bf.defArr(argv[2], argv[1])
 	elif op == "->":
 		if argt == ("var",):
-			function = tokens[int(var_func[argv[0]])]
-			return	eval_function(function, tokens, bf)
+			return	eval_function(get_func(argv[0]), tokens, bf)
 		elif argt == ("func",) or argt == ("int", ):
 			return eval_function(tokens[argv[0]], tokens, bf)
 	elif op == "~":
@@ -292,6 +294,7 @@ def eval_expression(expression, tokens, bf, params):
 			return params[argv[0]]
 	elif op == "=":
 		if argt == ("var", "var"):
+			print(argt[0], argv[0], get_type(-1))
 			if get_type(argv[0]) in ("int", "char") and \
 				get_type(argv[1]) in ("int", "char"):
 				return "var", bf.setVar(argv[0], argv[1])
@@ -335,7 +338,12 @@ def eval_expression(expression, tokens, bf, params):
 	elif op == "-":
 		pass
 	elif op == "++":
-		pass
+		if argt == ("var",):
+			if get_type(argv[0]) == "int":
+				bf.inc(argv[0])
+				return "var", argv[0]	
+		elif argt == ("int",):
+			return "int", argv[0] + 1;
 	elif op == "--":
 		pass
 	elif op == "==":
@@ -399,7 +407,24 @@ def eval_expression(expression, tokens, bf, params):
 	elif op == "?*":
 		pass
 	elif op == ":":
-		pass
+		if argt == ("func", "func", "func", "func"):
+			def start(param):
+				cell_type[param] = "int"
+				eval_function(get_func(argv[0]), tokens, bf, 
+					params=[("var", param)] + params)
+			def cond(param):
+				return eval_function(get_func(argv[1]),
+ 					tokens, bf, 
+					params=[("var", param)] + params)[1]
+				
+			def step(param):
+				eval_function(get_func(argv[2]), tokens, bf, 
+					params=[("var", param)] + params)
+			def do(param):			
+				eval_function(get_func(argv[3]), tokens, bf, 
+					params=[("var", param)] + params)
+			bf.for_(start, cond, step, do)
+	
 	elif op == "*!":
 		if argt == ("func",):
 			bf.forever(lambda: eval_function(tokens[argv[0]], 

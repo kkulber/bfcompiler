@@ -76,6 +76,12 @@ class bf_compiler:
 		if var not in self.vars:
 			return None
 		return self.vars[var]
+	
+	def get_name(self, var):
+		try:
+			return list(self.vars.keys())[list(self.vars.values()).index(var)]
+		except:
+			return None
 
 	def index(self, arr, index):
 		if type(arr) != str:
@@ -447,29 +453,30 @@ class bf_compiler:
 	def while_(self, cond, do):
 		temp = self.malloc()
 		memState = self.saveMemState()
-		self.move(cond(), temp)
+		self.setVar(temp, cond())
 		self.loadMemState(memState)
 		self.goto(temp)
 		self.code += "["
 		do()
 		self.loadMemState(memState)
-		self.move(cond(), temp)
+		self.setVar(temp, cond())
 		self.loadMemState(memState)
 		self.goto(temp)
 		self.code += "]"
 		self.free()
 
-	def for_(self, start, cond, loop):
+	def for_(self, start, cond, step, do):
 		cell, temp = self.malloc(2)
 		start(param=cell)
 		memState = self.saveMemState()
-		self.move(cond(param=cell), temp)
+		self.setVar(temp, cond(param=cell))
 		self.loadMemState(memState)
 		self.goto(temp)
 		self.code += "["
-		loop(param=cell)
+		do(param=cell)
+		step(param=cell)
 		self.loadMemState(memState)
-		self.move(cond(param=cell), temp)
+		self.setVar(temp, cond(param=cell))
 		self.loadMemState(memState)
 		self.goto(temp)
 		self.code += "]"

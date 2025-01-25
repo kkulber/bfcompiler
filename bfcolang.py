@@ -22,10 +22,10 @@ def lexer(source):
 	while i + 1 < len(source):
 		i += 1
 		# Don't remove spaces or comments in string
-		if source[i] == "\"":
+		if source[i] == "\"" and source[i-1] != "\\":
 			trimmed_source += "\""
 			i += 1
-			while source[i] != "\"":
+			while source[i] != "\"" or source[i-1] == "\\":
 				trimmed_source += source[i]
 				i += 1
 			trimmed_source += source[i]
@@ -153,10 +153,10 @@ def tokenize(expression):
 			i += 2
 
 		# Get strings
-		elif expression[i] == "\"":
+		elif expression[i] == "\"" and expression[i-1] != "\\":
 			string = ""
 			i += 1
-			while expression[i] != "\"":
+			while expression[i] != "\"" or expression[i-1] == "\\":
 				string += expression[i]
 				i += 1
 			tokens += [("str", 
@@ -256,7 +256,6 @@ def eval_expression(expression, tokens, bf, params):
 			
 	# NOP return expression
 	if type(expression) == tuple:
-		print(expression)
 		return expression
 
 	# Recursively run expressions
@@ -270,7 +269,6 @@ def eval_expression(expression, tokens, bf, params):
 	op = expression[0][1]
 	argt = tuple([t[0] for t in expression[1:]])
 	argv = tuple([t[1] for t in expression[1:]])
-	# print(op, argt, argv)
 	if op == "@":
 		if argt == ("type", "var"):
 			var_type[bf.get_name(argv[1])] = argv[0]
@@ -291,7 +289,7 @@ def eval_expression(expression, tokens, bf, params):
 			return eval_function(tokens[argv[0]], tokens, bf)
 	elif op == "~":
 		if argt == ("int",):
-			return "var", params[argv[0]][1]
+			return params[argv[0]]
 	elif op == "=":
 		if argt == ("var", "var"):
 			if get_type(argv[0]) in ("int", "char") and \
@@ -416,7 +414,9 @@ def compile():
 		for e in range(len(tokens[f])):
 			tokens[f][e] = computation_tree(tokens[f][e])
 	bf = bf_compiler()
-	eval_function(tokens[0], tokens, bf, main=True)
+	print("Main returned:", 
+		eval_function(tokens[0], tokens, bf,
+		 params=[("str", argv[1])], main=True))
 	bf.result(argv[1][:argv[1].find(".")])
 
 compile()	

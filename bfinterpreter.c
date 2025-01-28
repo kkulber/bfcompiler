@@ -8,7 +8,7 @@ unsigned char tape[TAPE_SIZE];
 int pointer;
 
 int main(int argc, char* argv[]){
-	if (argc != 2){
+	if (argc < 2){
 		printf("Please provide a file\n");
 		return -1;
 	}
@@ -79,10 +79,12 @@ int main(int argc, char* argv[]){
 					}
 				}
 				break;
-		
 		}
 	}
 	free(instrv);
-	printf("\n");	
+	printf("\n");
+	if (argc == 3){
+		printf("[DEBUG] %d\n", tape[(int)(TAPE_SIZE / 2) + atoi(argv[2])]);
+	}
 	return 1;
 }

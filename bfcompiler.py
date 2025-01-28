@@ -135,9 +135,10 @@ class bf_compiler:
 		self.copyArr(arr, free, reset=False)
 		return free
 
-	def malloc(self, len_=1):
-		if len_ == 1:
+	def malloc(self, len_=None):
+		if len_ == None:
 			free = -(self.used_temp + 1)
+			len_ = 1
 		else:
 			free = tuple(range(-(self.used_temp + 1), -(self.used_temp + 1 + len_), -1))
 		self.used_temp += len_

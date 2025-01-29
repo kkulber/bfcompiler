@@ -400,9 +400,17 @@ class bf_compiler:
 
 	def gtEq(self, cell, value):
 		pass
-	
+
 	def gtEqVar(self, cell1, cell2):
-		pass
+		result = self.malloc()
+		def edge():
+			self.set(result, 1)
+		def default():
+			self.move(self.gtVar(self.add(cell1, 1), cell2), result)
+			self.free()
+			self.free(reset=True)
+		self.ifelse(self.and_(self.eq(cell1, 255), self.eq(cell2, 255)), edge, default)
+		return result		
 	
 	def lt(self, cell, value):
 		pass

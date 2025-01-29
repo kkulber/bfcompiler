@@ -233,6 +233,7 @@ def computation_tree(tokens):
 
 cells = []
 var_func = {}
+DEBUG = False
 
 def eval_function(function, tokens, bf, params=[]):
 	return_token = (None, None)
@@ -264,7 +265,8 @@ def eval_expression(expression, tokens, bf, params):
 							bf, params)
 
 	# Run expressions depending on operator and argument types
-	print(expression, "\n", cells, "\n//////////")
+	if DEBUG:
+		print("[DEBUG]", expression)
 	op = expression[0][1]
 	argt = tuple([t[0] for t in expression[1:]])
 	argv = tuple([t[1] for t in expression[1:]])
@@ -338,7 +340,19 @@ def eval_expression(expression, tokens, bf, params):
 		pass
 	elif op == "+":
 		if argt == ("var", "var"):
-			pass	
+			cell = bf.addVar(argv[0], argv[1])
+			cells += ((cell, None, "int"),)
+			return "var", cell
+		elif argt == ("var", "int"):
+			cell = bf.add(argv[0], argv[1])
+			cells += ((cell, None, "int"),)
+			return "var", cell
+		elif argt == ("int", "var"):
+			cell = bf.add(argv[1], argv[0])
+			cells += ((cell, None, "int"),)
+			return "var", cell
+		elif argt == ("int", "int"):
+			return "int", argv[0] + argv[1]	
 	elif op == "-":
 		pass
 	elif op == "++":
@@ -357,7 +371,10 @@ def eval_expression(expression, tokens, bf, params):
 	elif op == ">":
 		pass
 	elif op == ">=":
-		pass
+		if argt == ("var", "var"):
+			cell = bf.gtEqVar(argv[0], argv[1])
+			cells += ((cell, None, "int"),)
+			return "var", cell
 	elif op == "<":
 		pass
 	elif op == "<=":
@@ -421,16 +438,22 @@ def eval_expression(expression, tokens, bf, params):
 	elif op == "!?":
 		pass
 	elif op == "?*":
-		pass
+		if argt == ("func", "func"):
+			def cond():
+				return eval_function(get_func(argv[0]), tokens, bf, 
+					params=params)[1]
+			def do():
+				eval_function(get_func(argv[1]), tokens, bf, 
+					params=params)
+			bf.while_(cond, do)
 	elif op == ":":
 		if argt == ("func", "func", "func", "func"):
 			def start(param):
-				cell_type[param] = "int"
+				cells += [param, None, "int"]
 				eval_function(get_func(argv[0]), tokens, bf, 
 					params=[("var", param)] + params)
 			def cond(param):
-				return eval_function(get_func(argv[1]),
- 					tokens, bf, 
+				return eval_function(get_func(argv[1]), tokens, bf, 
 					params=[("var", param)] + params)[1]
 				
 			def step(param):
@@ -444,7 +467,8 @@ def eval_expression(expression, tokens, bf, params):
 	elif op == "*!":
 		if argt == ("func",):
 			def do():
-				eval_function(tokens[argv[0]], tokens, bf)
+				eval_function(get_func(argv[0]), tokens, bf, 
+					params=params)
 			bf.forever(do)	
 	return "None", "None"
 		
@@ -455,7 +479,9 @@ def compile():
 		for e in range(len(tokens[f])):
 			tokens[f][e] = computation_tree(tokens[f][e])
 	bf = bf_compiler()
-	eval_function(tokens[0], tokens, bf, params=[("str", argv[1])])
-	bf.result(argv[1][:argv[1].find(".")])
+	result = eval_function(tokens[0], tokens, bf, params=[("str", argv[1])])
+	if DEBUG:
+		print("[DEBUG] Return:", result, "\n[DEBUG] Variable List:", cells)
+	bf.result(argv[1][argv[1].find("/")+1:argv[1].find(".")], trimmed=not DEBUG)
 
 compile()	

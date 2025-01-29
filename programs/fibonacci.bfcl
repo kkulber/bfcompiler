@@ -1,0 +1,11 @@
+int @ a = 0;
+int @ b = 1;
+int @ tmp;
+{ b >= a; } ?* {
+	.a;
+	." ";
+	tmp = a;
+	a = b;
+	b = a + tmp;
+};
+.a;

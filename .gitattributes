@@ -9,7 +9,3 @@
 
 # Ignore Python sample files
 /old/* linguist-vendored
-bubblesort.py linguist-vendored
-tictactoe.py linguist-vendored
-calculator.py linguist-vendored
-fibonacci.py linguist-vendored

@@ -233,7 +233,7 @@ def computation_tree(tokens):
 
 cells = []
 var_func = {}
-DEBUG = False
+DEBUG = False 
 
 def eval_function(function, tokens, bf, params=[]):
 	return_token = (None, None)
@@ -333,11 +333,51 @@ def eval_expression(expression, tokens, bf, params):
 	elif op == "|":
 		pass
 	elif op == "*":
-		pass
+		if argt == ("var", "var"):
+			cell = bf.mulVar(argv[0], argv[1])
+			cells += ((cell, None, "int"),)
+			return "var", cell
+		elif argt == ("var", "int"):
+			cell = bf.mul(argv[0], argv[1])
+			cells += ((cell, None, "int"),)
+			return "var", cell
+		elif argt == ("int", "var"):
+			cell = bf.mul(argv[1], argv[0])
+			cells += ((cell, None, "int"),)
+			return "var", cell
+		elif argt == ("int", "int"):
+			return "int", argv[0] * argv[1]	
 	elif op == "/":
-		pass
+		if argt == ("var", "var"):
+			cell = bf.divModVar(argv[0], argv[1])
+			cells += ((cell[0], None, "int"),)
+			return "var", cell[0]
+		elif argt == ("var", "int"):
+			cell = bf.divModl(argv[0], argv[1])
+			cells += ((cell[0], None, "int"),)
+			return "var", cell[0]
+		elif argt == ("int", "var"):
+			cell = bf.divModr(argv[0], argv[1])
+			cells += ((cell[0], None, "int"),)
+			return "var", cell[0]
+		elif argt == ("int", "int"):
+			return "int", argv[0] // argv[1]
 	elif op == "%":
-		pass
+		if argt == ("var", "var"):
+			cell = bf.divModVar(argv[0], argv[1])
+			cells += ((cell[1], None, "int"),)
+			return "var", cell[1]
+		elif argt == ("var", "int"):
+			cell = bf.divModl(argv[0], argv[1])
+			cells += ((cell[1], None, "int"),)
+			return "var", cell[1]
+		elif argt == ("int", "var"):
+			cell = bf.divModr(argv[0], argv[1])
+			cells += ((cell[1], None, "int"),)
+			return "var", cell[1]
+		elif argt == ("int", "int"):
+			return "int", argv[0] % argv[1]
+
 	elif op == "+":
 		if argt == ("var", "var"):
 			cell = bf.addVar(argv[0], argv[1])
@@ -354,16 +394,33 @@ def eval_expression(expression, tokens, bf, params):
 		elif argt == ("int", "int"):
 			return "int", argv[0] + argv[1]	
 	elif op == "-":
-		pass
+		if argt == ("var", "var"):
+			cell = bf.subVar(argv[0], argv[1])
+			cells += ((cell, None, "int"),)
+			return "var", cell
+		elif argt == ("var", "int"):
+			cell = bf.subl(argv[0], argv[1])
+			cells += ((cell, None, "int"),)
+			return "var", cell
+		elif argt == ("int", "var"):
+			cell = bf.subr(argv[0], argv[1])
+			cells += ((cell, None, "int"),)
+			return "var", cell
+		elif argt == ("int", "int"):
+			return "int", argv[0] - argv[1]
 	elif op == "++":
 		if argt == ("var",):
-			if get_type(argv[0]) == "int":
-				bf.inc(argv[0])
-				return "var", argv[0]	
+			bf.inc(argv[0])
+			return "var", argv[0]	
 		elif argt == ("int",):
 			return "int", argv[0] + 1;
 	elif op == "--":
-		pass
+		if argt == ("var",):
+			bf.dec(argv[0])
+			return "var", argv[0]	
+		elif argt == ("int",):
+			return "int", argv[0] - 1;
+
 	elif op == "==":
 		pass
 	elif op == "!=":
@@ -375,6 +432,7 @@ def eval_expression(expression, tokens, bf, params):
 			cell = bf.gtEqVar(argv[0], argv[1])
 			cells += ((cell, None, "int"),)
 			return "var", cell
+		# TODO
 	elif op == "<":
 		pass
 	elif op == "<=":

@@ -239,10 +239,7 @@ class bf_compiler:
 	def add(self, cell, value):
 		result = self.malloc()
 		self.setVar(result, cell, reset=False)
-		if value > 0:
-			self.inc(result, value)
-		else:
-			self.dec(result, -value)
+		self.inc(result, value)
 		return result
 
 	def addVar(self, cell1, cell2):
@@ -251,13 +248,19 @@ class bf_compiler:
 		self.setVar(result, cell2, reset=False)
 		return result
 
-	def sub(self, cell, value):
+	def subl(self, cell, value):
 		result = self.malloc()
 		self.setVar(result, cell, reset=False)
-		if value > 0:
-			self.dec(result, value)
-		else:
-			self.inc(result, -value)
+		self.dec(result, value)
+		return result
+
+	def subr(self, value, cell):
+		result, temp = self.malloc(2)
+		self.set(result, value, reset=False)	
+		self.setVar(temp, cell, reset=False)
+		self.goto(temp)
+		self.algorithm("sub")
+		self.free()
 		return result
 
 	def subVar(self, cell1, cell2):
@@ -265,7 +268,7 @@ class bf_compiler:
 		self.setVar(result, cell1, reset=False)
 		self.setVar(temp, cell2, reset=False)
 		self.goto(temp)
-		self.algorithm("subVar")
+		self.algorithm("sub")
 		self.free()
 		return result
 
@@ -281,16 +284,25 @@ class bf_compiler:
 		self.setVar(temp1, cell1, reset=False)
 		self.setVar(temp2, cell2, reset=False)
 		self.goto(temp1)
-		self.algorithm("mulVar")
+		self.algorithm("mul")
 		self.pointer = temp2
 		self.free(2)
 		return result
 
-	def divMod(self, cell, value):
+	def divModl(self, cell, value):
 		div, mod = self.malloc(2)
 		self.setVar(mod, cell, reset=False)
 		self.while_(lambda: self.or_(self.gt(mod, value), self.eq(mod, value)),
 			lambda: (self.dec(mod, value), self.inc(div, 1)))
+		return div, mod
+	
+	def divModr(self, value, cell):
+		div, mod, temp = self.malloc(3)
+		self.set(mod, value, reset=False)
+		self.setVar(temp, cell, reset=False)
+		self.while_(lambda: self.or_(self.gtVar(mod, temp), self.eqVar(mod, temp)),
+			lambda: (self.setVar(mod, self.subVar(mod, temp)), self.inc(div)))
+		self.free(reset=True)
 		return div, mod
 
 	def divModVar(self, cell1, cell2):
@@ -402,13 +414,17 @@ class bf_compiler:
 		pass
 
 	def gtEqVar(self, cell1, cell2):
-		result = self.malloc()
+		result, temp1, temp2, temp3, temp4 = self.malloc(5)
 		def edge():
 			self.set(result, 1)
 		def default():
-			self.move(self.gtVar(self.add(cell1, 1), cell2), result)
-			self.free()
-			self.free(reset=True)
+			self.setVar(temp1, cell1, reset=False)
+			self.inc(temp1)
+			self.setVar(temp2, cell2, reset=False)
+			self.goto(temp1)
+			self.algorithm("gt")
+			self.pointer = temp2
+		self.free(4)
 		self.ifelse(self.and_(self.eq(cell1, 255), self.eq(cell2, 255)), edge, default)
 		return result		
 	

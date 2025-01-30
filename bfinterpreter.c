@@ -84,7 +84,7 @@ int main(int argc, char* argv[]){
 	free(instrv);
 	printf("\n");
 	if (argc == 3){
-		printf("[DEBUG] %d\n", tape[(int)(TAPE_SIZE / 2) + atoi(argv[2])]);
+		printf("[DEBUG] Value at cell index %d: %d\n", atoi(argv[2]), tape[(int)(TAPE_SIZE / 2) + atoi(argv[2])]);
 	}
 	return 1;
 }

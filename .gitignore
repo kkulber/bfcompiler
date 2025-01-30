@@ -2,5 +2,4 @@ __pycache__/
 bfinterpreter
 test.bfcl
 generated/test.bf
-run.sh
 *.swp

@@ -233,7 +233,9 @@ def computation_tree(tokens):
 
 cells = []
 var_func = {}
-DEBUG = False 
+DEBUG = False
+if len(argv) == 3:
+	DEBUG = True 
 
 def eval_function(function, tokens, bf, params=[]):
 	return_token = (None, None)

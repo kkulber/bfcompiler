@@ -234,7 +234,7 @@ def computation_tree(tokens):
 cells = []
 var_func = {}
 DEBUG = False
-if len(argv) == 3:
+if argv[2] != "":
 	DEBUG = True 
 
 def eval_function(function, tokens, bf, params=[]):
@@ -424,17 +424,66 @@ def eval_expression(expression, tokens, bf, params):
 			return "int", argv[0] - 1;
 
 	elif op == "==":
-		pass
+		if argt == ("var", "var"):
+			cell = bf.eqVar(argv[0], argv[1])
+			cells += ((cell, None, "int"),)
+			return "var", cell
+		elif argt == ("var", "int"):
+			cell = bf.eq(argv[0], argv[1])
+			cells += ((cell, None, "int"),)
+			return "var", cell
+		elif argt == ("int", "var"):
+			cell = bf.eq(argv[1], argv[0])
+			cells += ((cell, None, "int"),)
+			return "var", cell
+		elif argt == ("int", "int"):
+			return "int", int(argv[0] == argv[1])
 	elif op == "!=":
-		pass
+		if argt == ("var", "var"):
+			cell = bf.neqVar(argv[0], argv[1])
+			cells += ((cell, None, "int"),)
+			return "var", cell
+		elif argt == ("var", "int"):
+			cell = bf.neq(argv[0], argv[1])
+			cells += ((cell, None, "int"),)
+			return "var", cell
+		elif argt == ("int", "var"):
+			cell = bf.neq(argv[1], argv[0])
+			cells += ((cell, None, "int"),)
+			return "var", cell
+		elif argt == ("int", "int"):
+			return "int", int(argv[0] != argv[1])
 	elif op == ">":
-		pass
+		if argt == ("var", "var"):
+			cell = bf.gtVar(argv[0], argv[1])
+			cells += ((cell, None, "int"),)
+			return "var", cell
+		elif argt == ("var", "int"):
+			cell = bf.gtl(argv[0], argv[1])
+			cells += ((cell, None, "int"),)
+			return "var", cell
+		elif argt == ("int", "var"):
+			cell = bf.gtr(argv[0], argv[1])
+			cells += ((cell, None, "int"),)
+			return "var", cell
+		elif argt == ("int", "int"):
+			return "int", int(argv[0] > argv[1])
+
 	elif op == ">=":
 		if argt == ("var", "var"):
 			cell = bf.gtEqVar(argv[0], argv[1])
 			cells += ((cell, None, "int"),)
 			return "var", cell
-		# TODO
+		elif argt == ("var", "int"):
+			cell = bf.gtEql(argv[0], argv[1])
+			cells += ((cell, None, "int"),)
+			return "var", cell
+		elif argt == ("int", "var"):
+			cell = bf.gtEqr(argv[0], argv[1])
+			cells += ((cell, None, "int"),)
+			return "var", cell
+		elif argt == ("int", "int"):
+			return "int", int(argv[0] >= argv[1])
 	elif op == "<":
 		pass
 	elif op == "<=":
@@ -541,7 +590,9 @@ def compile():
 	bf = bf_compiler()
 	result = eval_function(tokens[0], tokens, bf, params=[("str", argv[1])])
 	if DEBUG:
-		print("[DEBUG] Return:", result, "\n[DEBUG] Variable List:", cells)
+		print("[DEBUG] Return:", result, "\n[DEBUG] Variable List:", cells,
+			"\n[DEBUG] Used mem:", bf.used_mem, "\n[DEBUG] Used temp mem:", bf.used_temp,
+			"\n[DEBUG] Pointer position:", bf.pointer)
 	bf.result(argv[1][argv[1].find("/")+1:argv[1].find(".")], trimmed=not DEBUG)
 
 compile()	

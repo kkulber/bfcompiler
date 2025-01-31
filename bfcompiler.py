@@ -292,7 +292,7 @@ class bf_compiler:
 	def divModl(self, cell, value):
 		div, mod = self.malloc(2)
 		self.setVar(mod, cell, reset=False)
-		self.while_(lambda: self.or_(self.gt(mod, value), self.eq(mod, value)),
+		self.while_(lambda: self.gtEql(mod, value),
 			lambda: (self.dec(mod, value), self.inc(div, 1)))
 		return div, mod
 	
@@ -300,7 +300,7 @@ class bf_compiler:
 		div, mod, temp = self.malloc(3)
 		self.set(mod, value, reset=False)
 		self.setVar(temp, cell, reset=False)
-		self.while_(lambda: self.or_(self.gtVar(mod, temp), self.eqVar(mod, temp)),
+		self.while_(lambda: self.gtEqVar(mod, temp),
 			lambda: (self.setVar(mod, self.subVar(mod, temp)), self.inc(div)))
 		self.free(reset=True)
 		return div, mod
@@ -309,7 +309,7 @@ class bf_compiler:
 		div, mod, temp = self.malloc(3)
 		self.setVar(mod, cell1, reset=False)
 		self.setVar(temp, cell2, reset=False)
-		self.while_(lambda: self.or_(self.gtVar(mod, temp), self.eqVar(mod, temp)),
+		self.while_(lambda: self.gtEqVar(mod, temp),
 			lambda: (self.setVar(mod, self.subVar(mod, temp)), self.inc(div)))
 		self.free(reset=True)
 		return div, mod
@@ -390,12 +390,22 @@ class bf_compiler:
 		self.free()
 		return result
 
-	def gt(self, cell, value):
+	def gtl(self, cell, value):
 		if type(value) == str:
 			value = ord(value)
 		result, temp = self.malloc(2)
 		self.set(temp, value, reset=False)
 		self.move(self.gtVar(cell, temp), result)
+		self.free()
+		self.free(reset=True)
+		return result
+
+	def gtr(self, value, cell):
+		if type(value) == str:
+			value = ord(value)
+		result, temp = self.malloc(2)
+		self.set(temp, value, reset=False)
+		self.move(self.gtVar(temp, cell), result)
 		self.free()
 		self.free(reset=True)
 		return result
@@ -410,22 +420,42 @@ class bf_compiler:
 		self.free(4)
 		return result
 
-	def gtEq(self, cell, value):
-		pass
+	def gtEql(self, cell, value):
+		if type(value) == str:
+			value = ord(value)
+		result, temp = self.malloc(2)
+		self.set(temp, value, reset=False)
+		self.move(self.gtEqVar(cell, temp), result)
+		self.free()
+		self.free(reset=True)
+		return result
+	
+	def gtEqr(self, value, cell):
+		if type(value) == str:
+			value = ord(value)
+		result, temp = self.malloc(2)
+		self.set(temp, value, reset=False)
+		self.move(self.gtEqVar(temp, cell), result)
+		self.free()
+		self.free(reset=True)
+		return result
+
 
 	def gtEqVar(self, cell1, cell2):
 		result, temp1, temp2, temp3, temp4 = self.malloc(5)
+		self.setVar(temp1, cell1, reset=False)
+		self.setVar(temp2, cell2, reset=False)
 		def edge():
-			self.set(result, 1)
+			self.set(result, 1, reset=False)
+			self.reset(temp1)
+			self.reset(temp2)
 		def default():
-			self.setVar(temp1, cell1, reset=False)
 			self.inc(temp1)
-			self.setVar(temp2, cell2, reset=False)
-			self.goto(temp1)
 			self.algorithm("gt")
 			self.pointer = temp2
-		self.free(4)
 		self.ifelse(self.and_(self.eq(cell1, 255), self.eq(cell2, 255)), edge, default)
+		self.free(3, reset=True)
+		self.free(4)
 		return result		
 	
 	def lt(self, cell, value):
@@ -686,9 +716,9 @@ class bf_compiler:
 		result = self.malloc(3)
 		temp = self.index(result, 2)
 		self.setVar(temp, cell)
-		self.while_(lambda: self.or_(self.gt(temp, 100), self.eq(temp, 100)),
+		self.while_(lambda: self.gtEql(temp, 100),
 			lambda: (self.dec(temp, 100), self.inc(self.index(result, 0))))
-		self.while_(lambda: self.or_(self.gt(temp, 10), self.eq(temp, 10)),
+		self.while_(lambda: self.gtEql(temp, 10),
 			lambda: (self.dec(temp, 10), self.inc(self.index(result, 1))))
 		self.ifelse(self.index(result, 0),
 			lambda: (self.inc(self.index(result, 0), ord("0")),

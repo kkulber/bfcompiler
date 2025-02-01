@@ -458,19 +458,43 @@ class bf_compiler:
 		self.free(4)
 		return result		
 	
-	def lt(self, cell, value):
-		pass
-				
-	def ltVar(self, cell1, cell2):
-		pass
+	def ltl(self, cell, value):
+		result = self.malloc()
+		self.move(self.not_(self.gtEql(cell, value)), result)
+		self.free(2, reset=True)
+		return result
 	
-	def ltEq(self, cell, value):
-		pass
-						
-	def ltEq(self, cell1, cell2):
-		pass
+	def ltr(self, value, cell):
+		result = self.malloc()
+		self.move(self.not_(self.gtEqr(value, cell)), result)
+		self.free(2, reset=True)
+		return result
+	
+	def ltVar(self, cell1, cell2):
+		result = self.malloc()
+		self.move(self.not_(self.gtEqVar(cell1, cell2)), result)
+		self.free(2, reset=True)
+		return result
+	
+	def ltEql(self, cell, value):
+		result = self.malloc()
+		self.move(self.not_(self.gtl(cell, value)), result)
+		self.free(2, reset=True)
+		return result
 
-# Control Flow
+	def ltEqr(self, value, cell):
+		result = self.malloc()
+		self.move(self.not_(self.gtr(value, cell)), result)
+		self.free(2, reset=True)
+		return result
+						
+	def ltEqVar(self, cell1, cell2):
+		result = self.malloc()
+		self.move(self.not_(self.gtVar(cell1, cell2)), result)
+		self.free(2, reset=True)
+		return result
+
+	# Control Flow
 
 	def if_(self, cell, do):
 		temp = self.malloc()

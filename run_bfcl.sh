@@ -4,7 +4,7 @@ set -e
 echo "---------------"
 echo "Compiling..."
 echo "---------------"
-python3 bfcolang.py "$1".bfcl "$2"
+python3 bfcolang.py programs/"$1".bfcl "$2"
 echo "---------------"
 echo "Running..."
 echo "---------------"

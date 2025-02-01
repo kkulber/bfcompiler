@@ -249,7 +249,6 @@ def eval_function(function, tokens, bf, params=[]):
 	return return_token
 
 def eval_expression(expression, tokens, bf, params):
-	print(expression)
 	global cells
 	def get_type(cell):
 		for var in cells:

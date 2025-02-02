@@ -217,11 +217,15 @@ class bf_compiler:
 		return to
 
 	def inc(self, cell, value=1):
+		if type(value) == str:
+			value = ord(value)
 		self.goto(cell)
 		self.code += value * "+"
 		return cell
 
 	def dec(self, cell, value=1):
+		if type(value) == str:
+			value = ord(value)
 		self.goto(cell)
 		self.code += value * "-"
 		return cell
@@ -638,9 +642,9 @@ class bf_compiler:
 			self.reset(cell)
 		return arr
 
-	def setArr(self, arr, values):
+	def setArr(self, arr, values, reset=True):
 		for i, value in enumerate(values):
-			self.set(self.index(arr, i), value)
+			self.set(self.index(arr, i), value, reset=reset)
 		return arr
 
 	def moveArr(self, arr1, arr2, reset=True):
@@ -693,8 +697,17 @@ class bf_compiler:
 		self.copyArr(arr2, result[self.length(arr1):], reset=False)
 		return result
 
-	def concatStr(self, arr, string):
-		pass
+	def concatStrl(self, carr, varr):
+		temp0, temp1 = self.malloc(self.length(carr)), self.malloc(len(varr))
+		self.copyArr(carr, temp0, reset=False)
+		self.setArr(temp1, varr, reset=False)
+		return temp0 + temp1
+	
+	def concatStrr(self, varr, carr):
+		temp0, temp1 = self.malloc(len(varr)), self.malloc(self.length(carr))
+		self.setArr(temp0, varr, reset=False)
+		self.copyArr(carr, temp1, reset=False)
+		return temp0 + temp1
 
 	# Datatype Conversion
 

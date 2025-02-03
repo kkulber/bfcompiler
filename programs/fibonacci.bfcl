@@ -5,6 +5,6 @@ int @ tmp;
 	.a; ." ";
 	tmp = a;
 	a = b;
-	b = a + tmp;
+	b = (a + tmp);
 };
 .a;

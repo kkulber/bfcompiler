@@ -6,7 +6,7 @@ binary = ["?", "?*", "[*", "&", "|", "==", "!=", ">", "<", ">=", "<=",
 		"*", "/", "%", "+", "-", "@>", "@", "[", "="]
 ternary = [">@", "]=", "!?"]
 quaternary = [":"]
-operators = unary + ternary + quaternary + binary
+operators  = unary + binary + ternary + quaternary
  
 types = ["int", "char", "arr", "str", "func", "const"]
 valid_var = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_"
@@ -204,36 +204,53 @@ def tokenize(expression):
 					count -= 1
 				if count != 0:
 					content += expression[i]
-			tokens += [("exp", tokenize(content))]
+			tokens += [tokenize(content)]
 		
 		i += 1
 	return tokens
 
 def computation_tree(tokens):
-	# Recursively compute trees of nested expressions
+	# Compute subexpressions
 	i = 0
 	while i < len(tokens):
-		if tokens[i][0] == "exp":
-			tokens[i] = computation_tree(tokens[i][1])
+		if type(tokens[i]) == list:
+			tokens[i] = computation_tree(tokens[i])
 		i += 1
-	for op in operators:
-		i = 0
-		while i < len(tokens):
-			if tokens[i][0] == "op" and tokens[i][1] == op:
-				# Get opertors with different argc
-				if op in unary:
-					tokens[i:i+2] = [[tokens[i],
-							 tokens[i+1]]]
-				elif op in binary:
-					tokens[i-1:i+2] = [[tokens[i],
-						 tokens[i-1], tokens[i+1]]]
-				elif op in ternary:
-					tokens[i-3:i+2] = [[tokens[i],
-				 tokens[i-3], tokens[i-1], tokens[i+1]]]
-				elif op in quaternary:
-					tokens[i-1:i+6] = [[tokens[i],
-			tokens[i-1], tokens[i+1], tokens[i+3], tokens[i+5]]]
-			i += 1
+	# Unary operators
+	i = 0
+	while i < len(tokens):
+		if tokens[i][0] == "op" and tokens[i][1] in unary:
+			if tokens[i+1][0] != "op":
+				tokens[i:i+2] = [[tokens[i], tokens[i+1]]]
+				i = 0
+				continue
+		i += 1 
+	# Quaternary operators
+	i = 0
+	while i < len(tokens):
+		if tokens[i][0] == "op" and i + 4 < len(tokens):
+			if tokens[i+4][0] == "op" and tokens[i+4][1] in quaternary:
+				tokens[i-1:i+6] = [[tokens[i+4], tokens[i-1], tokens[i+1], tokens[i+3], tokens[i+5]]]
+				i = 0
+				continue
+		i += 1
+	# Ternary operators
+	i = 0
+	while i < len(tokens):
+		if tokens[i][0] == "op" and i + 2 < len(tokens):
+			if tokens[i+2][0] == "op" and tokens[i+2][1] in ternary:
+				tokens[i-1:i+4] = [[tokens[i+2], tokens[i-1], tokens[i+1], tokens[i+3]]]
+				i = 0
+				continue
+		i += 1
+	# Binary operators
+	i = 0
+	while i < len(tokens):
+		if tokens[i][0] == "op" and tokens[i][1] in binary:
+			tokens[i-1:i+2] = [[tokens[i], tokens[i-1], tokens[i+1]]]
+			i = 0
+			continue
+		i += 1 
 	return tokens[0]
 
 cells = []

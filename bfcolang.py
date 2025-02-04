@@ -3,12 +3,12 @@ from sys import argv
 
 unary = ["!", "++", "--", ".", ",", "^", "->", "~", "*!"]
 binary = ["?", "?*", "[*", "&", "|", "==", "!=", ">", "<", ">=", "<=", 
-		"*", "/", "%", "+", "-", "@>", "@", "[", "="]
+		"*", "/", "%", "+", "-", "@>", "@", "[", "=", "@="]
 ternary = [">@", "]=", "!?"]
 quaternary = [":"]
 operators  = unary + binary + ternary + quaternary
  
-types = ["int", "char", "arr", "str", "func", "const"]
+types = ["int", "char", "arr", "str", "func"]
 valid_var = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_"
 
 def get_source():
@@ -255,7 +255,7 @@ def computation_tree(tokens):
 
 cells = []
 var_func = {}
-constants = {}
+aliases = {}
 DEBUG = False
 if len(argv) == 3 and len(argv[2]) > 0:
 	DEBUG = True 
@@ -278,30 +278,32 @@ def eval_expression(expression, tokens, bf, params):
 	def get_func(func):
 		if type(func) == int:
 			return tokens[func]
-		if type(func) == list:
+		elif type(func) == list:
 			return func
-		if type(get_func(func)) == list:
-			return var_func[func]
-		return tokens[var_funv[func]]
+		elif type(func) == str:
+			return tokens[var_func[func]]
+	
 	# NOP return expression
 	if type(expression) == tuple:
 		return expression
 
 	# Recursively run expressions
 	current_expression = expression.copy()
-	for i in range(1, len(current_expression)):
-		# Evaluate constants
-		if current_expression[i][0] == "var" and current_expression[i][1] in constants:
-			current_expression[i] = constants[current_expression[i][1]]
+	for i in range(len(current_expression)):
+		# Check for alias definition operator (Pre-evaluation)
+		if current_expression[i][0] == "op" and current_expression[i][1] == "@=":
+			if type(current_expression[i+1]) == list:
+				current_expression[i+1] = eval_expression(current_expression[i], tokens, bf, params) 
+			aliases[current_expression[i+1][1]] = current_expression[i+2]
+			return "var", current_expression[i+1][1]
+
+		# Replace aliases with tokens
+		if current_expression[i][0] == "var" and current_expression[i][1] in aliases:
+			current_expression[i] = aliases[current_expression[i][1]]
 
 		if type(current_expression[i]) is list:
 			current_expression[i] = eval_expression(current_expression[i], tokens, bf, params)
-			
-			# Argument 2 of constants shouldn't be pre-evaluated
-			if current_expression[0][1] == "=" and current_expression[i][0] == "const":
-				constants[current_expression[i][1]] = current_expression[2]			
-				return "const", current_expression[i][1]
-	
+		
 	# Run expressions depending on operator and argument types
 	if DEBUG:
 		print("[DEBUG]", current_expression)
@@ -317,9 +319,9 @@ def eval_expression(expression, tokens, bf, params):
 			elif argv[0] == "arr" or argv[0] == "str":
 				cells += ((None, argv[1], argv[0]),)
 				return "var", argv[1]
-			elif argv[0] == "const":
-				constants[argv[1]] = None
-				return "const", argv[1]
+			elif argv[0] == "func":
+				var_func[argv[1]] = None
+				return "var", argv[1]
 	elif op == ">@":
 		if argt == ("type", "int", "var"):
 			defined = bf.defArr(argv[2], argv[1])
@@ -399,7 +401,8 @@ def eval_expression(expression, tokens, bf, params):
 			bf.setArr(argv[0], argv[1])
 			return "var", argv[0]
 		elif argt == ("var", "func"):
-			var_func[argv[0]] = argv[1]
+			if argv[0] in var_func:
+				var_func[argv[0]] = argv[1]
 			return "func", argv[0]
 	elif op == "^":
 		if argt == ("var",):	
@@ -797,6 +800,7 @@ def eval_expression(expression, tokens, bf, params):
 			return "arr", argv[0]
 
 	# No return -> No evaluation happened
+	print(op, argv, argt)
 	types = [argt[i] if argt[i] != "var" else "var:" + get_type(argv[i]) for i in range(len(argt))]
 	if len(types) > 1:
 		formatted_types = ", ".join(types)
@@ -813,7 +817,8 @@ def compile():
 	result = eval_function(tokens[0], tokens, bf, params=[("str", argv[1])])
 	if DEBUG:
 		print("[DEBUG] Return:", result, 
-			"\n[DEBUG] Variable List:", cells, "\n[DEBUG] Constant List:", constants,
+			"\n[DEBUG] Variable List:", cells, "\n[DEBUG] Alias List:", aliases,
+			"\n[DEBUG] Function List:", var_func,
 			"\n[DEBUG] Used mem:", bf.used_mem, "\n[DEBUG] Used temp mem:", bf.used_temp,
 			"\n[DEBUG] Pointer position:", bf.pointer)
 	bf.result(argv[1][argv[1].find("/")+1:argv[1].find(".")], trimmed=not DEBUG)

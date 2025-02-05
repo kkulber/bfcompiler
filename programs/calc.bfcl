@@ -1,0 +1,46 @@
+# Take operator input #
+."What operation would you like to perform? (+, -, *, /) ";
+char @ op = ,char;
+
+# validate input #
+valid_ops @= "+-*/";
+int @ valid = 0;
+item @= ~0;
+valid_ops[* {
+	item == op ? {
+		valid = 1;
+	};
+};
+
+!valid ? {
+	."Invalid operator!";
+} !? {
+	# Take number input #
+	."Please enter two operands:\n";
+	int @ a = ,int;
+	int @ b = ,int;
+	
+	# Calculate #
+	arr<2> @ result;
+	op == '+' ? {
+		result[0] = (a + b);
+	} !? {
+	op == '-' ? {
+		result[0] = (a - b);
+	} !? {
+	op == '*' ? {
+		result[0] = (a * b);
+	} !? {
+		result[0] = (a / b);
+		result[1] = (a % b);
+	};};};
+
+	# Output #
+	.a; ." ";
+	.op; ." "; 
+	.b; ." = ";
+	.result[0;
+	op == '/' ? {
+		." R "; .result[1;
+	};
+};

@@ -1,4 +1,4 @@
-LENGTH @= 10;
+LENGTH @= 5;
 
 .("Please input " + (LENGTH @> str) + " numbers:\n");
 arr<LENGTH> @ list = ,list;
@@ -6,9 +6,9 @@ arr<LENGTH> @ list = ,list;
 
 int @ i = 0;
 int @ tmp;
-{ i < (LENGTH - 1); } ?* {
-	(list[i > (list[(i+1))) ? {
-		tmp = (list[i);
+{ i < LENGTH - 1; } ?* {
+	list[i > list[(i+1) ? {
+		tmp = list[i;
 		list[i] = (list[(i + 1));
 		list[(i+1)] = tmp;
 		i = 0;	

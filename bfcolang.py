@@ -1,13 +1,17 @@
 from bfcompiler import *
 from sys import argv
 
-unary = ["!", "++", "--", ".", ",", "^", "->", "~", "*!"]
-binary = ["?", "?*", "[*", "&", "|", "==", "!=", ">", "<", ">=", "<=", 
-		"*", "/", "%", "+", "-", "@>", "@", "[", "=", "@="]
-ternary = [">@", "]=", "!?"]
+unary = ["->", "~", "^", ".", ",", "!", "++", "--", "*!"]
+binary = ["[", "*", "/", "%", "+", "-", ">", "<", ">=", "<=", "==", "!=",
+		 "&", "|", "=", "@=", "@", "@>", "?", "?*", "[*"]
+ternary = ["]=", ">@", "!?"]
 quaternary = [":"]
 operators  = unary + binary + ternary + quaternary
- 
+
+op_order = ("->", "~", "^", "[", "]="), ("!", ".", ",", "++", "--"), \
+	("*", "/", "%"), ("+", "-"), (">", "<", ">=", "<=", "==", "!="), \
+	("&",), ("|",), ("=", "@=", "@", "@>", ">@"), ("?", "!?", "?*", "*!", "[*", ":")	 
+
 types = ["int", "char", "arr", "str", "func"]
 valid_var = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_"
 
@@ -179,8 +183,12 @@ def tokenize(expression):
 
 		# Get functions
 		elif expression[i] == "{":
-			tokens += [("func", int(expression[i+1]))]
-			i += 2
+			func_index = ""
+			i += 1
+			while expression[i] != "}":
+				func_index += expression[i]
+				i += 1
+			tokens += [("func", int(func_index))]
 
 		# Get variables
 		elif expression[i] in valid_var:
@@ -216,41 +224,41 @@ def computation_tree(tokens):
 		if type(tokens[i]) == list:
 			tokens[i] = computation_tree(tokens[i])
 		i += 1
-	# Unary operators
+	
+	# Cut quaternary fill operators
 	i = 0
 	while i < len(tokens):
-		if tokens[i][0] == "op" and tokens[i][1] in unary:
-			if tokens[i+1][0] != "op":
-				tokens[i:i+2] = [[tokens[i], tokens[i+1]]]
-				i = 0
-				continue
-		i += 1 
-	# Quaternary operators
-	i = 0
-	while i < len(tokens):
-		if tokens[i][0] == "op" and i + 4 < len(tokens):
-			if tokens[i+4][0] == "op" and tokens[i+4][1] in quaternary:
-				tokens[i-1:i+6] = [[tokens[i+4], tokens[i-1], tokens[i+1], tokens[i+3], tokens[i+5]]]
-				i = 0
-				continue
+		if tokens[i][0] == "op" and tokens[i][1] in quaternary:
+			del tokens[i+2], tokens[i+3]
 		i += 1
-	# Ternary operators
+
+	# Cut ternary fill operators
 	i = 0
 	while i < len(tokens):
-		if tokens[i][0] == "op" and i + 2 < len(tokens):
-			if tokens[i+2][0] == "op" and tokens[i+2][1] in ternary:
-				tokens[i-1:i+4] = [[tokens[i+2], tokens[i-1], tokens[i+1], tokens[i+3]]]
-				i = 0
-				continue
+		if tokens[i][0] == "op" and tokens[i][1] in ternary:
+			del tokens[i-2]
+			i -= 1
 		i += 1
-	# Binary operators
-	i = 0
-	while i < len(tokens):
-		if tokens[i][0] == "op" and tokens[i][1] in binary:
-			tokens[i-1:i+2] = [[tokens[i], tokens[i-1], tokens[i+1]]]
-			i = 0
-			continue
-		i += 1 
+
+	# Group tokens based on presedence fields
+	for field in op_order:
+		i = 0
+		while i < len(tokens):
+			if tokens[i][0] == "op" and tokens[i][1] in field:
+				if tokens[i][1] in unary and tokens[i+1][0] != "op": 
+					tokens[i:i+2] = [[tokens[i], tokens[i+1]]]
+	
+				elif tokens[i][1] in binary:
+					tokens[i-1:i+2] = [[tokens[i], tokens[i-1], tokens[i+1]]]
+
+				elif tokens[i][1] in ternary:
+					tokens[i-2:i+2] = [[tokens[i], tokens[i-2], tokens[i-1], tokens[i+1]]]
+		
+				elif tokens[i][1] in quaternary:
+					tokens[i-1:i+4] = [[tokens[i], tokens[i-1], tokens[i+1], 
+							tokens[i+2], tokens[i+3]]]
+				i = 0
+			i += 1
 	return tokens[0]
 
 cells = []
@@ -286,7 +294,7 @@ def eval_expression(expression, tokens, bf, params):
 	# NOP return expression
 	if type(expression) == tuple:
 		return expression
-
+	
 	# Recursively run expressions
 	current_expression = expression.copy()
 	for i in range(len(current_expression)):
@@ -310,6 +318,7 @@ def eval_expression(expression, tokens, bf, params):
 	op = current_expression[0][1]
 	argt = tuple([t[0] for t in current_expression[1:]])
 	argv = tuple([t[1] for t in current_expression[1:]])
+
 	if op == "@":
 		if argt == ("type", "var"):
 			if argv[0] == "int" or argv[0] == "char":
@@ -583,31 +592,36 @@ def eval_expression(expression, tokens, bf, params):
 			cell = bf.eqVar(argv[0], argv[1])
 			cells += ((cell, None, "int"),)
 			return "var", cell
-		elif argt == ("var", "int"):
-			cell = bf.eq(argv[0], argv[1])
+		elif (argt == ("var", "int") or argt == ("var", "char")) and get_type(argv[0]) == argt[1]:
+			op = argv[1] if argt[1] == "int" else ord(argv[1])
+			cell = bf.eq(argv[0], op)
 			cells += ((cell, None, "int"),)
 			return "var", cell
-		elif argt == ("int", "var"):
-			cell = bf.eq(argv[1], argv[0])
+		elif (argt == ("int", "var") or argt == ("char", "var")) and get_type(argv[1]) == argt[0]:
+			op = argv[0] if argt[0] == "int" else ord(argv[0])
+			cell = bf.eq(argv[1], op)
 			cells += ((cell, None, "int"),)
 			return "var", cell
-		elif argt == ("int", "int"):
+		elif argt == ("int", "int") or argt == ("char", "char"):
 			return "int", int(argv[0] == argv[1])
 	elif op == "!=":
 		if argt == ("var", "var"):
 			cell = bf.neqVar(argv[0], argv[1])
 			cells += ((cell, None, "int"),)
 			return "var", cell
-		elif argt == ("var", "int"):
-			cell = bf.neq(argv[0], argv[1])
+		elif (argt == ("var", "int") or argt == ("var", "char")) and get_type(argv[0]) == argt[1]:
+			op = argv[1] if argt[1] == "int" else ord(argv[1])
+			cell = bf.neq(argv[0], op)
 			cells += ((cell, None, "int"),)
 			return "var", cell
-		elif argt == ("int", "var"):
-			cell = bf.neq(argv[1], argv[0])
+		elif (argt == ("int", "var") or argt == ("char", "var")) and get_type(argv[1]) == argt[0]:
+			op = argv[0] if argt[0] == "int" else ord(argv[0])
+			cell = bf.neq(argv[1], op)
 			cells += ((cell, None, "int"),)
 			return "var", cell
-		elif argt == ("int", "int"):
+		elif argt == ("int", "int") or argt == ("char", "char"):
 			return "int", int(argv[0] != argv[1])
+
 	elif op == ">":
 		if argt == ("var", "var"):
 			cell = bf.gtVar(argv[0], argv[1])
@@ -800,8 +814,7 @@ def eval_expression(expression, tokens, bf, params):
 			return "arr", argv[0]
 
 	# No return -> No evaluation happened
-	print(op, argv, argt)
-	types = [argt[i] if argt[i] != "var" else "var:" + get_type(argv[i]) for i in range(len(argt))]
+	types = [(argt[i] if argt[i] != "var" else "var:" + get_type(argv[i])) + f" ({argv[i]})" for i in range(len(argt))]
 	if len(types) > 1:
 		formatted_types = ", ".join(types)
 		raise TypeError(f"Arguments of types \"{formatted_types}\" are not supported for operator \"{op}\"")	

@@ -1,0 +1,103 @@
+# Booleans #
+bool @= int;
+False @= 0;
+True @= 1;
+
+# Constants #
+WIN_POSITIONS @= 
+$0 1 2
+ 3 4 5
+ 6 7 8
+ 0 3 6
+ 1 4 7
+ 2 5 8
+ 0 4 8
+ 2 4 6$;
+
+EMPTY @= 0;
+X @= 1; O @= 2;
+
+# Parameter Access #
+field @= ~0;
+i @= ~0;
+
+# Global Variables #
+arr<3*3> @ board;
+int @ player = X;
+
+# Function that draws the board in its current state #
+int @ count;
+func @ draw_board = {
+	count = 0;
+	."\n";
+	board [* {
+		count % 3 == 0 ? { ."\n------\n"; };
+		field == O ? { ."O"; } !? {
+		field == X ? { ."X"; } !? 
+		{ ." "; };};
+		."|";
+		++count;
+	};
+};
+
+# Function for taking user input #
+int @ input;
+bool @ valid;
+func @ get_board_input = {
+	input = ,input - 1;
+	valid = False;
+	input >= 0 & input <= 8 ? {
+		board[input == EMPTY ? {
+			board[input] = player;
+			valid = True;
+		} !? { ."\nThat square is already taken.\n"; };
+	} !? { ."Please enter a digit between 1 and 9.\n" };
+};
+
+# Function for checking if someone won #
+int @ winner;
+func @ check_win = {
+	{ i = 0; } : { i < ^WIN_POSITIONS; } : { i = i + 3; } : {
+		board[(WIN_POSITIONS[i) == player & 
+		board[(WIN_POSITIONS[(i+1)) == player & 
+		board[(WIN_POSITIONS[(i+2)) == player ? { winner = player; };		
+	};
+};
+
+# Function for checking if there is a draw #
+bool @ draw;
+func @ check_draw = {
+	draw = True;
+	board [* {
+		field == EMPTY ? { draw = False; };
+	};
+};
+
+# Introduction #
+."
+TicTacToe\n\n
+Please enter a digit from 1 to 9 to place your symbol into the according space\n\n
+1|2|3|
+------
+4|5|6|
+------
+7|8|9|
+------";
+
+# Game loop #
+{ winner == EMPTY & draw == False; } ?* {
+	player == X ? { ."\nX's turn!"; } !? { ."\nO's turn!"; };
+	->get_board_input;
+	->draw_board;
+	->check_win;
+	->check_draw;
+	valid ? {
+		player == X ? { player = O; } !? { player = X; };
+	};
+};
+
+# Print result #
+winner == X ? { ."\n\nX wins!"; } !? {
+winner == O ? { ."\n\nO wins!"; } !? {
+	."\n\nDraw!";
+};};

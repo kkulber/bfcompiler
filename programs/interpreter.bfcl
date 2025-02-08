@@ -1,0 +1,31 @@
+TAPE_LENGTH @= 10;
+CODE_LENGTH @= 50;
+
+arr<TAPE_LENGTH> @ tape;
+str<CODE_LENGTH> @ code = ,code;
+int @ pointer = TAPE_LENGTH / 2;
+
+int @ i;
+{ i < CODE_LENGTH; } ?* {
+	code[i == '+' ? { tape[pointer] = (tape[pointer + 1); } !? {
+	code[i == '-' ? { tape[pointer] = (tape[pointer - 1); } !? {
+	code[i == '>' ? { ++pointer; } !? {
+	code[i == '<' ? { --pointer; } !? {
+	code[i == '.' ? { .(tape[pointer @> char); } !? {
+	code[i == ',' ? { tape[pointer] = (,char); } !? {
+	code[i == '[' ? { 
+		!tape[pointer ? {
+			{ code[i != ']'; } ?* {
+				++i;
+			};
+		};
+	} !? {
+	code[i == ']' ? {
+		tape[pointer ? {
+			{ code[i != '['; } ?* {
+				--i;
+			};
+		};
+	};};};};};};};};
+	++i;
+};

@@ -312,7 +312,7 @@ def eval_expression(expression, tokens, bf, params):
             return "var", current_expression[i+1][1]
 
         # Replace aliases with tokens
-        if current_expression[i][0] == "var" and current_expression[i][1] in aliases:
+        while current_expression[i][0] == "var" and current_expression[i][1] in aliases:
             current_expression[i] = aliases[current_expression[i][1]]
 
         if type(current_expression[i]) is list:
@@ -344,14 +344,22 @@ def eval_expression(expression, tokens, bf, params):
             return "var", defined
     elif op == "@>":
         if argt == ("var", "type"):
-            if (get_type(argv[0]) == "int" or get_type(argv[0]) == "char") and \
-                    (argv[1] == "arr" or argv[1] == "str"):
-                        bf.vars[argv[0]] = (bf.get(argv[0]),)
-            for cell in cells:
-                if argv[0] == cell[0] or argv[0] == cell[1]:
-                    cells += ((cell[0], cell[1], argv[1]),)
-                    break
-            return "var", argv[0] 
+            if get_type(argv[0]) == "int" and argv[1] == "char" or\
+                get_type(argv[0]) == "char" and argv[1] == "int":
+                    cell = bf.malloc()
+                    bf.setVar(cell, argv[0])
+                    cells += ((cell, None, argv[1]),)
+                    return "var", cell
+            elif get_type(argv[0]) == "arr" and argv[1] == "str" or\
+                get_type(argv[0]) == "str" and argv[1] == "arr":
+                    cell = bf.malloc(bf.length(argv[0]))
+                    bf.copyArr(argv[0], cell)
+                    cells += ((cell, None, argv[1]),)
+                    return "var", cell            
+            elif get_type(argv[0]) == "int" and argv[1] == "str":
+                cell = bf.toArr(argv[0])
+                cells += ((cell, None, "str"),)
+                return "var", cell
         elif argt == ("int", "type"):
             if argv[1] == "char":
                 return "char", chr(argv[0])

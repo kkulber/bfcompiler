@@ -300,16 +300,17 @@ def eval_expression(expression, tokens, bf, params):
     # NOP return expression
     if type(expression) == tuple:
         return expression
-    
+
     # Recursively run expressions
     current_expression = expression.copy()
-    for i in range(len(current_expression)):
+    i = 0
+    while i < len(current_expression):
         # Check for alias definition operator (Pre-evaluation)
         if current_expression[i][0] == "op" and current_expression[i][1] == "@=":
-            if type(current_expression[i+1]) == list:
+            while type(current_expression[i+1]) == list:
                 current_expression[i+1] = eval_expression(current_expression[i], tokens, bf, params) 
             aliases[current_expression[i+1][1]] = current_expression[i+2]
-            return "var", current_expression[i+1][1]
+            current_expression[i:i+3] = current_expression[i+2]
 
         # Replace aliases with tokens
         while current_expression[i][0] == "var" and current_expression[i][1] in aliases:
@@ -317,7 +318,9 @@ def eval_expression(expression, tokens, bf, params):
 
         if type(current_expression[i]) is list:
             current_expression[i] = eval_expression(current_expression[i], tokens, bf, params)
-        
+
+        i += 1
+
     # Run expressions depending on operator and argument types
     if DEBUG:
         print("[DEBUG]", current_expression)

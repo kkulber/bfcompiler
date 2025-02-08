@@ -41,8 +41,8 @@ while true; do
     
     # Run
     if ! python3 bfcolang.py "$BFCL_FILE" > /dev/null; then
-        sed -i '$d' "$BFCL_FILE"   # Remove the current command line
-        sed -i '$d' "$BFCL_FILE"   # Remove the previous command line
+        sed -i '$d' "$BFCL_FILE"
+        sed -i '$d' "$BFCL_FILE"
         continue
     fi
     ./bfinterpreter "$BF_FILE"

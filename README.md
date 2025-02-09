@@ -217,7 +217,7 @@ Defines an alias with a variable name. When using this alias in following code, 
 #### Define ####
 type @ any (var.) => any (var.)
 
-Defines a variable of a specified type. Returns the variable
+Defines a variable of a specified type. If its a mult type, sets size whenever a value is assigned. Returns the variable
 
 #### Define with size ####
 mult (var.) < int (lit.) >@ var => var

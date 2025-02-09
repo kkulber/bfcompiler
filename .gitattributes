@@ -2,7 +2,6 @@
 *.py linguist-language=Python
 *.c linguist-language=C
 *.bf linguist-language=Brainf*ck
-*.bfcl linguist-language=Bfcolang
 
 # Ignore generated code
 /generated/* linguist-vendored

@@ -1,9 +1,13 @@
 TAPE_LENGTH @= 10;
 CODE_LENGTH @= 50;
 
+."Bitte setzen Sie den auszuführenden bf Quelltext ein:\n";
+
 arr<TAPE_LENGTH> @ tape;
 str<CODE_LENGTH> @ code = ,code;
 int @ pointer = TAPE_LENGTH / 2;
+
+."Führe aus...\n";
 
 int @ i;
 { i < CODE_LENGTH; } ?* {
@@ -12,7 +16,7 @@ int @ i;
 	code[i == '>' ? { ++pointer; } !? {
 	code[i == '<' ? { --pointer; } !? {
 	code[i == '.' ? { .(tape[pointer @> char); } !? {
-	code[i == ',' ? { tape[pointer] = (,char); } !? {
+	code[i == ',' ? { ."\n>"; tape[pointer] = (,char); } !? {
 	code[i == '[' ? { 
 		!tape[pointer ? {
 			{ code[i != ']'; } ?* {

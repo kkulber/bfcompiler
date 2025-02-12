@@ -1,5 +1,6 @@
 # Take operator input #
-."What operation would you like to perform? (+, -, *, /) ";
+."(Bitte beachten, dass zurzeit nur mit Zahlen zwischen 0 und 255 gerechnet werden kann)\n";
+."Welche Rechnung möchten sie ausführen? (+, -, *, /) ";
 char @ op = ,char;
 
 # validate input #
@@ -13,10 +14,10 @@ valid_ops[* {
 };
 
 !valid ? {
-	."Invalid operator!";
+	."Kein valides Rechenzeichen!";
 } !? {
 	# Take number input #
-	."Please enter two operands:\n";
+	."Bitte geben Sie zwei Zahlen ein:\n";
 	int @ a = ,int;
 	int @ b = ,int;
 	

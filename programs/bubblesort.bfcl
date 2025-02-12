@@ -1,8 +1,8 @@
 LENGTH @= 5;
 
-.("Please input " + (LENGTH @> str) + " numbers:\n");
+.("Bitte geben Sie " + (LENGTH @> str) + " Zahlen an:\n");
 arr<LENGTH> @ list = ,list;
-."Sorting...\n";
+."Sortiere...\n";
 
 int @ i = 0;
 int @ tmp;

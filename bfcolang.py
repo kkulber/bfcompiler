@@ -20,7 +20,7 @@ def get_source():
     with open(argv[1], "r") as source:
         return "".join(source.readlines())
 
-def lexer(source):
+def preprocessor(source):
     # Remove Spaces and comments
     trimmed_source = ""
     i = -1
@@ -118,11 +118,11 @@ def lexer(source):
     for function in expressions:
         function_tokens = []
         for i in function:
-            function_tokens += [tokenize(i)]
+            function_tokens += [lexer(i)]
         tokens += [function_tokens]
     return tokens
 
-def tokenize(expression):
+def lexer(expression):
     tokens = []
     i = 0 
     while i < len(expression):
@@ -213,17 +213,17 @@ def tokenize(expression):
                     count -= 1
                 if count != 0:
                     content += expression[i]
-            tokens += [tokenize(content)]
+            tokens += [lexer(content)]
         
         i += 1
     return tokens
 
-def computation_tree(tokens):
+def AST(tokens):
     # Compute subexpressions
     i = 0
     while i < len(tokens):
         if type(tokens[i]) == list:
-            tokens[i] = computation_tree(tokens[i])
+            tokens[i] = AST(tokens[i])
         i += 1
 
     # Cut quaternary fill operators
@@ -296,7 +296,7 @@ def eval_expression(expression, tokens, bf, params):
             return func
         elif type(func) == str:
             return tokens[var_func[func]]
-    
+ 
     # NOP return expression
     if type(expression) == tuple:
         return expression
@@ -310,8 +310,10 @@ def eval_expression(expression, tokens, bf, params):
             while type(current_expression[i+1]) == list:
                 current_expression[i+1] = eval_expression(current_expression[i], tokens, bf, params) 
             aliases[current_expression[i+1][1]] = current_expression[i+2]
-            current_expression[i:i+3] = current_expression[i+2]
-
+            current_expression[i:i+3] = (current_expression[i+2],)
+            if len(current_expression) == 1:
+                return current_expression[0]
+    
         # Replace aliases with tokens
         while current_expression[i][0] == "var" and current_expression[i][1] in aliases:
             current_expression[i] = aliases[current_expression[i][1]]
@@ -321,7 +323,7 @@ def eval_expression(expression, tokens, bf, params):
 
         i += 1
 
-    # Run expressions depending on operator and argument types
+       # Run expressions depending on operator and argument types
     if DEBUG:
         print("[DEBUG]", current_expression)
     op = current_expression[0][1]
@@ -843,10 +845,10 @@ def eval_expression(expression, tokens, bf, params):
                 f"\nExpression: {expression}")
         
 def compile():
-    tokens = lexer(get_source())
+    tokens = preprocessor(get_source())
     for f in range(len(tokens)):
         for e in range(len(tokens[f])):
-            tokens[f][e] = computation_tree(tokens[f][e])
+            tokens[f][e] = AST(tokens[f][e])
     bf = bf_compiler()
     result = eval_function(tokens[0], tokens, bf, params=[("str", argv[1])])
     if DEBUG:

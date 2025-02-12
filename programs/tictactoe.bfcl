@@ -50,8 +50,8 @@ func @ get_board_input = {
 		board[input == EMPTY ? {
 			board[input] = player;
 			valid = True;
-		} !? { ."\nThat square is already taken.\n"; };
-	} !? { ."Please enter a digit between 1 and 9.\n" };
+		} !? { ."\nDieses Feld ist besetzt.\n"; };
+	} !? { ."Bitte geben Sie eine Zahl zwischen 1 und 9 ein.\n"; };
 };
 
 # Function for checking if someone won #
@@ -76,7 +76,7 @@ func @ check_draw = {
 # Introduction #
 ."
 TicTacToe\n\n
-Please enter a digit from 1 to 9 to place your symbol into the according space\n\n
+Setzen Sie ihr Symbol indem Sie die Nummer zum dazugehörigem Feld eingeben.\n\n
 1|2|3|
 ------
 4|5|6|
@@ -86,7 +86,7 @@ Please enter a digit from 1 to 9 to place your symbol into the according space\n
 
 # Game loop #
 { winner == EMPTY & draw == False; } ?* {
-	player == X ? { ."\nX's turn!"; } !? { ."\nO's turn!"; };
+	player == X ? { ."\nX ist dran! "; } !? { ."\nO ist dran! "; };
 	->get_board_input;
 	->draw_board;
 	->check_win;
@@ -97,7 +97,7 @@ Please enter a digit from 1 to 9 to place your symbol into the according space\n
 };
 
 # Print result #
-winner == X ? { ."\n\nX wins!"; } !? {
-winner == O ? { ."\n\nO wins!"; } !? {
-	."\n\nDraw!";
+winner == X ? { ."\n\nX gewinnt!"; } !? {
+winner == O ? { ."\n\nO gewinnt!"; } !? {
+	."\n\nUnentschieden!";
 };};

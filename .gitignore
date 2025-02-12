@@ -4,5 +4,6 @@ test.bfcl
 generated/test.bf
 generated/tmp_shell.bf
 programs/tmp_shell.bfcl
+old/
 Jufo/
 *.swp

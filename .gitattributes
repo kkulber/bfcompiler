@@ -2,9 +2,7 @@
 *.py linguist-language=Python
 *.c linguist-language=C
 *.bf linguist-language=Brainf*ck
+*.sh linguist-language=Shell
 
 # Ignore generated code
 /generated/* linguist-vendored
-
-# Ignore Python sample files
-/old/* linguist-vendored

@@ -61,7 +61,7 @@ One of the following 34 operators `->, ~, ^, ., ,, !, ++, --, *!, [, *, /, %, +,
 Custom names for both bf memory and compiler memory. Can be any string of lowercase and uppercase letters, as well as `_` e.g `x  path  sum`. They cannot contain any of the datatypes. More on variables in the section for functionality
 
 ### Comments ###
-*Any* text between hashtags will be ignores by the compiler as a comment. e.g `# This is a comment #  # I can write comments! #  ## ` (Btw, all space-like character e.g Space, Tab, Newline are ignores as well)
+*Any* text between hashtags will be ignores by the compiler as a comment. e.g `# This is a comment #  # I can write comments! #  ## ` (Btw, all space-like character e.g Space, Tab, Newline are ignored as well)
 
 ### Expression Control ###
 There are four kinds of operators in bfcl. 
@@ -156,9 +156,9 @@ Returns modulus of two integers
 
 ### 3b. Arithmetic Operators ###
 #### Sum / Concatination ####
-int + int => int, str + str => str
+int + int => int
 
-Returns the sum of two integers or the concatination of two strings
+Returns the sum of two integers
 
 #### Difference ####
 int - int => int

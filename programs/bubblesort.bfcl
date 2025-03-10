@@ -1,6 +1,6 @@
 LENGTH @= 5;
 
-.("Bitte geben Sie " + (LENGTH @> str) + " Zahlen an:\n");
+.("Bitte geben Sie "); .LENGTH; ." Zahlen an:\n";
 arr<LENGTH> @ list = ,list;
 ."Sortiere...\n";
 

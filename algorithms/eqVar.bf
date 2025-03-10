@@ -1,6 +1,6 @@
 [-<->]+<[>-<[-]]
 
-start:		b a
-		  |
-end:		0 r
-		|
+start:  b a
+pointer: 0
+end:    0 r
+pointer: 1

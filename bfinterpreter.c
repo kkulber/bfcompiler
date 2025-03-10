@@ -27,9 +27,9 @@ int main(int argc, char* argv[]){
 	fseek(file, 0, SEEK_SET);
 
 	char*  instrv = malloc(instrc * sizeof(char));
-	fgets(instrv, instrc, file); 
+	fread(instrv, 1, instrc, file);
 	fclose(file);
-	
+
 	for (int i = 0; i < instrc-1; i++){
 		switch(instrv[i]){
 			case '+':

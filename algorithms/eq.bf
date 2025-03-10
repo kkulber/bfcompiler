@@ -2,7 +2,7 @@
 
 dec(a, value)
 
-start:		0 a
-		  |
-end:		r 0
-		  |
+start:  a 0
+pointer: 1
+end:    0 r
+pointer: 1

@@ -1,4 +1,15 @@
-str @ message = "Hello Jufo\n";
-*! {
-	.message;
+str @ message = "Hello Jufo!";
+i @= ~0;
+j @= ~1;
+{ i = 0; } : { i != ^message; } : { ++i; } : {
+    { i = 0; } : { i <= j; } : { ++i; } : {
+        .message[i;
+    };
+    ."\n";
+};
+{ i = ^message - 1; } : { i != 255; } : { --i; } : {
+    { i = 0; } : { i <= j; } : { ++i; } : {
+        .message[i;
+    };
+    ."\n";
 };

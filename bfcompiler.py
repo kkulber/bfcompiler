@@ -108,40 +108,31 @@ class bf_compiler:
             self.set(free, value, reset=False)
         return free
 
-    def defVar(self, name, cell):
-        free = self.used_mem
-        self.vars[name] = free
-        self.used_mem += 1
-        self.setVar(free, cell, reset=False)
-        return free
-
     def defArr(self, name, values):
         if type(values) == str:
               values = list(values)
         if type(values) == int:
             values = values*(0,)
-        free = tuple(range(self.used_mem, self.used_mem + len(values)))
-        self.used_mem += len(values)
+        free = tuple(range(self.used_mem + 4, self.used_mem + len(values) + 4))
+        self.used_mem += len(values) + 4
         self.vars[name] = free
         for i in range(len(values)):
             if values[i] != 0:
                      self.set(free[i], values[i], reset=False)
         return free
 
-    def defArrVar(self, name, arr):
-        free = tuple(range(self.used_mem, self.used_mem + self.length(arr)))
-        self.used_mem += self.length(arr)
-        self.vars[name] = free
-        self.copyArr(arr, free, reset=False)
+    def malloc(self, num=None):
+        if num == None:
+            free = -(self.used_temp + 1)
+            num = 1
+        else:
+            free = tuple(range(-(self.used_temp + 1), -(self.used_temp + 1 + num), -1))
+        self.used_temp += num
         return free
 
-    def malloc(self, len_=None):
-        if len_ == None:
-            free = -(self.used_temp + 1)
-            len_ = 1
-        else:
-            free = tuple(range(-(self.used_temp + 1), -(self.used_temp + 1 + len_), -1))
-        self.used_temp += len_
+    def mallocArr(self, num=None):
+        free = tuple(range(-(self.used_temp + 1), -(self.used_temp + 1 + num), -1))
+        self.used_temp += num + 4
         return free
 
     def free(self, num=1, reset=False):
@@ -150,10 +141,11 @@ class bf_compiler:
                 self.reset(cell)
         self.used_temp -= num
 
-    def clean(self, preserve=0):
-        for cell in range(-self.used_temp, -preserve):
-            self.reset(cell)
-        self.used_temp = 0
+    def freeArr(self, num=1, reset=False):
+        if reset:
+            for cell in range(-self.used_temp + 4, -self.used_temp + num + 4):
+                self.reset(cell)
+        self.used_temp -= num + 4
 
     def saveMemState(self):
         return self.used_temp
@@ -202,13 +194,16 @@ class bf_compiler:
         self.code += "]"
         return to
 
-    def setVar(self, to, from_, reset=True):
+    def setVar(self, to, from_, reset=True, negate=False):
         if reset:
             self.reset(to)
         temp = self.malloc()
         self.goto(from_)
         self.code += "[-"
-        self.inc(to)
+        if negate:
+            self.dec(to)
+        else:
+            self.inc(to)
         self.inc(temp)
         self.goto(from_)
         self.code += "]"
@@ -259,21 +254,15 @@ class bf_compiler:
         return result
 
     def subr(self, value, cell):
-        result, temp = self.malloc(2)
-        self.set(result, value, reset=False)    
-        self.setVar(temp, cell, reset=False)
-        self.goto(temp)
-        self.algorithm("sub")
-        self.free()
+        result = self.malloc()
+        self.set(result, value, reset=False)
+        self.setVar(result, cell, reset=False, negate=True)
         return result
 
     def subVar(self, cell1, cell2):
-        result, temp = self.malloc(2)
+        result = self.malloc()
         self.setVar(result, cell1, reset=False)
-        self.setVar(temp, cell2, reset=False)
-        self.goto(temp)
-        self.algorithm("sub")
-        self.free()
+        self.setVar(result, cell2, reset=False, negate=True)
         return result
 
     def mul(self, cell, value):
@@ -617,7 +606,7 @@ class bf_compiler:
         return result
 
     def inputArr(self, len_=3):
-        result = self.malloc(len_)
+        result = self.mallocArr(len_)
         temp, newline = self.malloc(2)
         self.set(temp, 1)
         def do(param):
@@ -658,66 +647,39 @@ class bf_compiler:
         return arr2
 
     def getIndex(self, arr, index):
-        result, temp0, temp1, temp2 = self.malloc(4)
-        tempArr = self.malloc(self.length(arr))
-        self.setVar(temp0, index, reset=False)
-        self.setVar(temp1, temp0, reset=False)
-        self.copyArr(arr, tempArr, reset=False)
-        self.goto(temp0)
+        result = self.malloc()
+        temp0, temp1, temp2, temp3 = list(range(min(self.get(arr)) - 4, min(self.get(arr))))
+        self.setVar(temp1, index, reset=False)
+        self.setVar(temp2, temp1, reset=False)
+        self.goto(temp1)
         self.algorithm("indexGet")
-        self.pointer = temp2
-        self.resetArr(tempArr)
-        self.free(self.length(arr) + 3)
+        self.pointer = temp3
+        self.move(temp0, result)
         return result
 
     def setIndex(self, arr, index, value):
-        temp = self.malloc()
-        self.set(temp, value)
-        self.setIndexVar(arr, index, temp)
-        self.free(reset=True)
-        return arr 
-
-    def setIndexVar(self, arr, index, data):
-        temp0, temp1, temp2, temp3 = self.malloc(4)
-        tempArr = self.malloc(self.length(arr))
-        self.setVar(temp1, index)
-        self.setVar(temp2, temp1)
-        self.setVar(temp3, data)
-        self.moveArr(arr, tempArr)
+        temp0, temp1, temp2, temp3 = list(range(self.index(arr, 0) - 4, self.index(arr, 0)))
+        self.setVar(temp1, index, reset=False)
+        self.setVar(temp2, temp1, reset=False)
+        self.set(temp3, value, reset=False)
         self.goto(temp1)
+        self.code += "!"
         self.algorithm("indexSet")
         self.pointer = temp2
-        self.moveArr(tempArr, arr)
-        self.free(self.length(arr) + 4)
         return arr
 
-    def concat(self, arr1, arr2):
-        result = self.malloc(self.length(arr1) + self.length(arr2))
-        self.copyArr(arr1, result[:self.length(arr1)], reset=False)
-        self.copyArr(arr2, result[self.length(arr1):], reset=False)
-        return result
-
-    def concatStrl(self, carr, varr):
-        temp0, temp1 = self.malloc(self.length(carr)), self.malloc(len(varr))
-        self.copyArr(carr, temp0, reset=False)
-        self.setArr(temp1, varr, reset=False)
-        return temp0 + temp1
-    
-    def concatStrr(self, varr, carr):
-        temp0, temp1 = self.malloc(len(varr)), self.malloc(self.length(carr))
-        self.setArr(temp0, varr, reset=False)
-        self.copyArr(carr, temp1, reset=False)
-        return temp0 + temp1
+    def setIndexVar(self, arr, index, data):
+        temp0, temp1, temp2, temp3 = list(range(self.index(arr, 0) - 4, self.index(arr, 0)))
+        self.setVar(temp1, index, reset=False)
+        self.setVar(temp2, temp1, reset=False)
+        self.setVar(temp3, data, reset=False)
+        self.goto(temp1)
+        self.code += "!"
+        self.algorithm("indexSet")
+        self.pointer = temp2
+        return arr
 
     # Datatype Conversion
-
-    def toBool(self, cell):
-        result, temp = self.malloc(2)
-        self.setVar(temp, cell, reset=False)
-        self.goto(temp)
-        self.algorithm("toBool")
-        self.free()
-        return result
 
     def toInt(self, arr):
         temp = self.malloc(3)

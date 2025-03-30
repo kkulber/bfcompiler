@@ -307,7 +307,6 @@ class bf_compiler:
         self.free(reset=True)
         return div, mod
     
-
     # Logic
 
     def not_(self, cell):

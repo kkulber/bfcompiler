@@ -424,13 +424,13 @@ def eval_expression(expression, tokens, bf, params):
             elif get_type(argv[0]) in ("arr", "str") and \
                     get_type(argv[1]) in ["arr", "str"]:
                     if bf.get(argv[0]) == None:
-                            defined = bf.defArr(argv[0], bf.length(argv[1]))
-                    for cell in cells:
-                        if cell[1] == argv[0]:
-                            cells += ((defined, cell[1], 
-                                cell[2]),)
-                            cells.remove(cell)
-                            break
+                        defined = bf.defArr(argv[0], bf.length(argv[1]))
+                        for cell in cells:
+                            if cell[1] == argv[0]:
+                                cells += ((defined, cell[1], 
+                                    cell[2]),)
+                                cells.remove(cell)
+                                break
                     bf.copyArr(argv[1], argv[0])
                     return "var", argv[0]
         elif argt == ("var", "int") or argt == ("var", "char"):
@@ -445,6 +445,7 @@ def eval_expression(expression, tokens, bf, params):
                             cell[2]),)
                         cells.remove(cell)
                         break
+            bf.setArr(argv[0], argv[1])
             return "var", argv[0]
         elif argt == ("var", "func"):
             if argv[0] in var_func:
@@ -863,4 +864,4 @@ def compile():
             "\n[DEBUG] Pointer position:", bf.pointer)
     bf.result(argv[1][argv[1].find("/")+1:argv[1].find(".")], trimmed=not DEBUG)
 
-compile()    
+compile()

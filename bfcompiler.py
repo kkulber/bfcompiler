@@ -131,7 +131,7 @@ class bf_compiler:
         return free
 
     def mallocArr(self, num=None):
-        free = tuple(range(-(self.used_temp + 1), -(self.used_temp + 1 + num), -1))
+        free = tuple(range(-(self.used_temp + 1), -(self.used_temp + 1 + num), -1))[::-1]
         self.used_temp += num + 4
         return free
 

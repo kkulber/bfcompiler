@@ -1,0 +1,71 @@
+PLACES @= 
+$39 16
+ 3 232
+ 0 100
+ 0 10
+ 0 1$;
+NUM_SIZE @= 2;
+DEC_PLACES @= 5;
+EMPTY_DEC_ARR @= $0 0 0 0 0$;
+ZERO @= $0 0$;
+
+i @= ~0;
+
+arr<NUM_SIZE> @ p_add_one;
+arr<NUM_SIZE> @ p_add_two;
+func @ add = {
+    { i = NUM_SIZE - 1; } : { i != 255; } : { --i; } : {
+        { p_add_two[i; } ?* {
+            p_add_two[i] = (p_add_two[i - 1);
+            p_add_one[i != 255 ? {
+                p_add_one[i] = (p_add_one[i + 1);
+                } !? {
+                p_add_one[i] = 0;
+                p_add_one[(i - 1)] = (p_add_one[(i - 1) + 1);
+            };
+        };
+    };
+    p_add_one;
+};
+
+arr<DEC_PLACES> @ p_to_dec_arr;
+int @ to_dec_arr_place;
+arr<DEC_PLACES> @ r_to_dec_arr;
+func @ to_dec_arr = {
+    to_dec_arr_place = DEC_PLACES - 1;
+    r_to_dec_arr = EMPTY_DEC_ARR;
+    { i = 4; } : { i != 255; } : { --i; } : {
+        p_to_dec_arr[i != 0 ? {
+            r_to_dec_arr[to_dec_arr_place] = (p_to_dec_arr[i - ('0' @> int));
+            --to_dec_arr_place;
+        };
+    };
+    r_to_dec_arr;
+};
+
+arr<DEC_PLACES> @ input_one = ,(input_one @> str);
+arr<DEC_PLACES> @ input_two = ,(input_two @> str);
+
+p_to_dec_arr = input_one;
+input_one = ->to_dec_arr;
+p_to_dec_arr = input_two;
+input_two = ->to_dec_arr;
+
+p_add_one = ZERO;
+{ i = DEC_PLACES - 1; } : { i != 255; } : { --i; } : {
+    { input_one[i; } ?* {
+        p_add_two[0] = (PLACES[(i*2));
+        p_add_two[1] = (PLACES[(i*2+1));
+        ->add;
+        input_one[i] = (input_one[i - 1); 
+    };
+    { input_two[i; } ?* {
+        p_add_two[0] = (PLACES[(i*2));
+        p_add_two[1] = (PLACES[(i*2+1));
+        ->add;
+        input_two[i] = (input_two[i - 1); 
+    };
+};
+
+.p_add_one[0; ." * 256 + "; .p_add_one[1;
+."\nDies ist nur ein Konzeptbeweis und die Umwandlung von Zellen zu Dezimal Zeichenketten wurde ausgelassen";

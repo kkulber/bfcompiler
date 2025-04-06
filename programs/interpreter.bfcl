@@ -1,5 +1,5 @@
-TAPE_LENGTH @= 10;
-CODE_LENGTH @= 50;
+TAPE_LENGTH @= 30;
+CODE_LENGTH @= 255;
 
 ."Bitte setzen Sie den auszuführenden bf Quelltext ein:\n";
 

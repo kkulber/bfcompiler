@@ -1,8 +1,9 @@
 # Recognize file types
 *.py linguist-language=Python
 *.c linguist-language=C
-*.bf linguist-language=Brainf*ck
 *.sh linguist-language=Shell
+**.bf linguist-language=Brainf*ck
+**.bfcl linguist-language=bfcolang
 
 # Ignore generated code
 /generated/* linguist-vendored

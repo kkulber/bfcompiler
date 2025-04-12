@@ -127,9 +127,6 @@ def reset():
     output.config(state=NORMAL)
     output.delete("1.0", END)
     output.config(state=DISABLED)
-    update_tape()
-    update_code()
-    update_statistics()
 def restart():
     stop()
     root.after(step_time.get(), reset)
@@ -260,6 +257,9 @@ def execute_command():
         update_code()
         waiting_for_input = True
         
+    elif code[index] == "!":
+        stop()
+        
     index += 1
     
     if executed % step_size.get() == 0:
@@ -270,7 +270,6 @@ def execute_command():
     if index < len(code) and not waiting_for_input and running:
         root.after(step_time.get(), execute_command)
     else:
-        running = False
         update_tape()
         update_code()
         update_statistics()
@@ -360,7 +359,6 @@ def process_input(event):
     if event.keysym_num >= 0 and event.keysym_num <= 255 and waiting_for_input:
         tape[pointer + offset] = event.keysym_num
         waiting_for_input = False
-        running = True
         update_tape()
         execute_command()
         characters_input += 1

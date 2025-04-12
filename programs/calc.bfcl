@@ -40,8 +40,8 @@ valid_ops[* {
 	.a; ." ";
 	.op; ." "; 
 	.b; ." = ";
-	.result[0;
+	.(result[0);
 	op == '/' ? {
-		." R "; .result[1;
+		." R "; .(result[1);
 	};
 };

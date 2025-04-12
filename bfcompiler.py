@@ -18,14 +18,6 @@ class bf_compiler:
         return self.code
 
     def trim(self):
-        # Remove leading pointer moves
-        i = 0
-        while i < len(self.code):
-            if self.code[i] not in "<>":
-                self.code = self.code[i:]
-                break
-            i += 1
-
         # Remove redundant code after last input/ouput
         find = max(self.code.rfind("."), self.code.rfind(","))
         if find == -1:
@@ -59,12 +51,20 @@ class bf_compiler:
         # Remove Operations that undo themselves
             for seq in "+-", "-+", "<>", "><":
                 while self.code.find(seq) != -1:
-                    self.code = self.code.replace(seq, "") 
+                    self.code = self.code.replace(seq, "")
+        
+        # Remove leading pointer moves
+        i = 0
+        while i < len(self.code):
+            if self.code[i] not in "<>":
+                self.code = self.code[i:]
+                break
+            i += 1
 
 
-    def algorithm(self, filename):
+    def algorithm(self, filename, part=0):
         file = open(f"algorithms/{filename}.bf", "r")
-        self.code += file.readlines()[0].strip()
+        self.code += file.readlines()[part].strip()
         file.close()
 
 
@@ -110,7 +110,7 @@ class bf_compiler:
 
     def defArr(self, name, values):
         if type(values) == str:
-              values = list(values)
+              values = list(values) + [0]
         if type(values) == int:
             values = values*(0,)
         free = tuple(range(self.used_mem + 4, self.used_mem + len(values) + 4))
@@ -135,13 +135,16 @@ class bf_compiler:
         self.used_temp += num + 4
         return free
 
+    def arrAccessCell(self, arr, num):
+        return self.get(arr)[0] - (4 - num)
+
     def free(self, num=1, reset=False):
         if reset:
             for cell in range(-self.used_temp, -self.used_temp + num):
                 self.reset(cell)
         self.used_temp -= num
 
-    def freeArr(self, num=1, reset=False):
+    def freeArr(self, num, reset=False):
         if reset:
             for cell in range(-self.used_temp + 4, -self.used_temp + num + 4):
                 self.reset(cell)
@@ -567,10 +570,13 @@ class bf_compiler:
         self.free()
 
     def foreach(self, arr, do):
-        memState = self.saveMemState()
-        for cell in self.get(arr):
-            do(param=cell)
-            self.loadMemState(memState)
+        def start(param):
+            self.set(param, 0)
+        def cond(param):
+            return self.neq(param, self.length(arr))
+        def step(param):
+            self.inc(param)
+        self.for_(start, cond, step, do)
 
     # IO
 
@@ -595,7 +601,7 @@ class bf_compiler:
             self.print(cell)
         return arr
 
-    def input(self, single=True):
+    def input(self):
         result, newline = self.malloc(2)
         self.goto(result)
         self.code += ","
@@ -604,23 +610,15 @@ class bf_compiler:
         self.free(reset=True)
         return result
 
-    def inputArr(self, len_=3):
+    def inputArr(self, len_=4):
         result = self.mallocArr(len_)
-        temp, newline = self.malloc(2)
-        self.set(temp, 1)
-        def do(param):
-            def take_input():
-                self.goto(param)
-                self.code += ","
-            self.if_(temp, take_input)
-            self.if_(self.eq(param, "\n"), lambda: (self.reset(temp),
-                  self.reset(param)))
-        self.foreach(result, do)
-        def catch_newline():
-            self.goto(newline)
-            self.code += ","
-        self.if_(temp, catch_newline)
-        self.free(2, reset=True)
+        temp = self.arrAccessCell(result, 0)
+        self.set(temp, len_, reset=False)
+        self.algorithm("inputArr", 0)
+        self.code += (len_) * "+"
+        self.algorithm("inputArr", 1)
+        self.code += (len_) * "+"
+        self.algorithm("inputArr", 2)
         return result
     
     # Arrays
@@ -681,30 +679,13 @@ class bf_compiler:
     # Datatype Conversion
 
     def toInt(self, arr):
-        temp = self.malloc(3)
-        result = self.index(temp, 2)
+        temp = self.mallocArr(4)
         self.copyArr(arr, temp)
-        self.dec(self.index(temp, 0), ord("0"))
-        def one_digit_parsing():
-            self.move(self.index(temp, 0), result)
-        def two_digit_parsing():
-            self.move(self.index(temp, 1), result, reset=False)
-            self.move(self.mul(self.index(temp, 0), 10), result, reset=False)
-            self.free()
-        def three_digit_parsing():
-            self.dec(self.index(temp, 2), ord("0"))
-            self.move(self.mul(self.index(temp, 1), 10), result, reset=False)
-            self.move(self.mul(self.index(temp, 0), 100), result, reset=False)
-            self.reset(self.index(temp, 1))
-            self.free(2)
-        self.ifelse(self.not_(self.index(temp, 1)), one_digit_parsing,
-            lambda: (self.dec(self.index(temp, 1), ord("0")),
-                self.ifelse(self.not_(self.index(temp, 2)),
-                    two_digit_parsing, three_digit_parsing)))
-        self.free(reset=True)
-        self.move(result, self.index(temp, 0))
-        result = self.index(temp, 0)
-        self.free(2)
+        self.goto(self.index(temp, 0))
+        self.algorithm("toInt")
+        self.pointer = self.index(temp, 2)
+        self.freeArr(4)
+        result = self.malloc()
         return result
     
     def toDigit(self, cell):

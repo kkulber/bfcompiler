@@ -1,6 +1,6 @@
 [>>>[-<<<<+>>>>]<[->+<]<[->+<]<[->+<]>-]>>>[-]<[->+<]<[[-<+>]<<<[->>>>+<<<<]>>-]
 
 start:  0 i i d a a a a ...
-pointer: 1 (LEFT)
+pointer: 1
 end:    0 0 0 0 b b b b ...
-pointer: 2 (LEFT)
+pointer: 2

@@ -18,7 +18,6 @@ EMPTY @= 0;
 X @= 1; O @= 2;
 
 # Parameter Access #
-field @= ~0;
 i @= ~0;
 
 # Global Variables #
@@ -32,8 +31,8 @@ func @ draw_board = {
 	."\n";
 	board [* {
 		count % 3 == 0 ? { ."\n------\n"; };
-		field == O ? { ."O"; } !? {
-		field == X ? { ."X"; } !? 
+		board[i == O ? { ."O"; } !? {
+		board[i == X ? { ."X"; } !? 
 		{ ." "; };};
 		."|";
 		++count;
@@ -69,7 +68,7 @@ bool @ draw;
 func @ check_draw = {
 	draw = True;
 	board [* {
-		field == EMPTY ? { draw = False; };
+		board[i == EMPTY ? { draw = False; };
 	};
 };
 

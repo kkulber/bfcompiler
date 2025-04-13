@@ -11,6 +11,7 @@ int @ pointer = TAPE_LENGTH / 2;
 
 int @ i;
 { i < CODE_LENGTH; } ?* {
+	code[i == (0 @> char) ? { i = CODE_LENGTH - 1; } !? {
 	code[i == '+' ? { tape[pointer] = (tape[pointer + 1); } !? {
 	code[i == '-' ? { tape[pointer] = (tape[pointer - 1); } !? {
 	code[i == '>' ? { ++pointer; } !? {
@@ -30,6 +31,6 @@ int @ i;
 				--i;
 			};
 		};
-	};};};};};};};};
+	};};};};};};};};};
 	++i;
 };

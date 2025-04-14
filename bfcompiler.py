@@ -642,8 +642,11 @@ class bf_compiler:
 
     # Arrays
 
-    def clearArr(self, arr):
-        pass
+    def resetArr(self, arr):
+        self.set(self.arrAccessCell(arr, 3), self.length(arr))
+        self.algorithm("resetArr")
+        self.pointer = self.index(arr, self.length(arr)-1)
+        return arr
 
     def setArr(self, arr, values, reset=True):
         for i, value in enumerate(values):
@@ -652,7 +655,7 @@ class bf_compiler:
 
     def copyArr(self, arr1, arr2, reset=True):
         if reset:
-            self.clearArr(arr2)
+            self.resetArr(arr2)
         self.set(self.arrAccessCell(arr1, 2), self.length(arr1))
         self.set(self.arrAccessCell(arr1, 3), self.length(arr1))
         self.goto(self.arrAccessCell(arr1, 3))
@@ -700,7 +703,7 @@ class bf_compiler:
 
     def toInt(self, arr):
         temp = self.mallocArr(4)
-        self.copyArr(arr, temp)
+        self.copyArr(arr, temp, reset=False)
         self.goto(self.index(temp, 0))
         self.algorithm("toInt")
         self.freeArr(temp)
@@ -712,15 +715,10 @@ class bf_compiler:
 
     def toArr(self, cell):
         result = self.mallocArr(4)
-        temp = self.index(result, 2)
-        self.setVar(temp, cell)
-        self.while_(lambda: self.gtEql(temp, 100),
-            lambda: (self.dec(temp, 100), self.inc(self.index(result, 0))))
-        self.while_(lambda: self.gtEql(temp, 10),
-            lambda: (self.dec(temp, 10), self.inc(self.index(result, 1))))
-        self.inc(self.index(result, 0), ord('0'))
-        self.inc(self.index(result, 1), ord('0'))
-        self.inc(self.index(result, 2), ord('0'))
+        self.setVar(self.arrAccessCell(result, 0), cell, reset=False)
+        self.goto(self.arrAccessCell(result, 1))
+        self.algorithm("toArr")
+        self.pointer = self.index(result, 0)
         return result
 
     def toChr(self, cell):

@@ -215,15 +215,11 @@ class bf_compiler:
         return to
 
     def inc(self, cell, value=1):
-        if type(value) == str:
-            value = ord(value)
         self.goto(cell)
         self.code += value * "+"
         return cell
 
     def dec(self, cell, value=1):
-        if type(value) == str:
-            value = ord(value)
         self.goto(cell)
         self.code += value * "-"
         return cell
@@ -340,28 +336,16 @@ class bf_compiler:
         self.free(2)
         return result
 
-
     # Comparison
 
-    def neq(self, cell, value):
-        if type(value) == str:
-            value = ord(value)
+    def eqVar(self, cell1, cell2):
         result, temp = self.malloc(2)
-        self.setVar(temp, cell, reset=False)
-        self.dec(temp, value)
-        self.goto(temp)
-        self.algorithm("neq")
+        self.setVar(result, cell1)
+        self.setVar(temp, cell2)
+        self.goto(result)
+        self.algorithm("eqVar")
+        self.pointer = temp
         self.free()
-        return result
-
-    def neqVar(self, cell1, cell2):
-        result, temp1, temp2 = self.malloc(3)
-        self.setVar(temp1, cell1, reset=False)
-        self.setVar(temp2, cell2, reset=False)
-        self.goto(temp1)
-        self.algorithm("neqVar")
-        self.pointer = temp2
-        self.free(2)
         return result
 
     def eq(self, cell, value):
@@ -375,119 +359,134 @@ class bf_compiler:
         self.free()
         return result
 
-    def eqVar(self, cell1, cell2):
+    def neqVar(self, cell1, cell2):
+        result, temp1, temp2 = self.malloc(3)
+        self.setVar(temp1, cell1, reset=False)
+        self.setVar(temp2, cell2, reset=False)
+        self.goto(temp1)
+        self.algorithm("neqVar")
+        self.pointer = temp2
+        self.free(2)
+        return result
+
+    def neq(self, cell, value):
+        if type(value) == str:
+            value = ord(value)
         result, temp = self.malloc(2)
-        self.setVar(result, cell1)
-        self.setVar(temp, cell2)
-        self.goto(result)
-        self.algorithm("eqVar")
-        self.pointer = temp
+        self.setVar(temp, cell, reset=False)
+        self.dec(temp, value)
+        self.goto(temp)
+        self.algorithm("neq")
         self.free()
         return result
 
     def gtl(self, cell, value):
-        if type(value) == str:
-            value = ord(value)
-        result, temp = self.malloc(2)
-        self.set(temp, value, reset=False)
-        self.move(self.gtVar(cell, temp), result)
-        self.free()
-        self.free(reset=True)
+        result, temp1, temp2, temp3, temp4, temp5 = self.malloc(6)
+        self.set(temp1, value, reset=False)
+        self.setVar(temp2, cell, reset=False)
+        self.goto(temp3)
+        self.algorithm("gt")
+        self.free(5)
         return result
 
     def gtr(self, value, cell):
-        if type(value) == str:
-            value = ord(value)
-        result, temp = self.malloc(2)
-        self.set(temp, value, reset=False)
-        self.move(self.gtVar(temp, cell), result)
-        self.free()
-        self.free(reset=True)
+        result, temp1, temp2, temp3, temp4, temp5 = self.malloc(6)
+        self.setVar(temp1, cell, reset=False)
+        self.set(temp2, value, reset=False)
+        self.goto(temp3)
+        self.algorithm("gt")
+        self.free(5)
         return result
 
     def gtVar(self, cell1, cell2):
-        result, temp1, temp2, temp3, temp4 = self.malloc(5)
-        self.setVar(temp1, cell1, reset=False)
-        self.setVar(temp2, cell2, reset=False)
-        self.goto(temp1)
+        result, temp1, temp2, temp3, temp4, temp5 = self.malloc(6)
+        self.setVar(temp1, cell2, reset=False)
+        self.setVar(temp2, cell1, reset=False)
+        self.goto(temp3)
         self.algorithm("gt")
-        self.pointer = temp2 
-        self.free(4)
-        return result
-
-    def gtEql(self, cell, value):
-        if type(value) == str:
-            value = ord(value)
-        result, temp = self.malloc(2)
-        self.set(temp, value, reset=False)
-        self.move(self.gtEqVar(cell, temp), result)
-        self.free()
-        self.free(reset=True)
-        return result
-    
-    def gtEqr(self, value, cell):
-        if type(value) == str:
-            value = ord(value)
-        result, temp = self.malloc(2)
-        self.set(temp, value, reset=False)
-        self.move(self.gtEqVar(temp, cell), result)
-        self.free()
-        self.free(reset=True)
-        return result
-
-
-    def gtEqVar(self, cell1, cell2):
-        result, temp1, temp2, temp3, temp4 = self.malloc(5)
-        self.setVar(temp1, cell1, reset=False)
-        self.setVar(temp2, cell2, reset=False)
-        def edge():
-            self.set(result, 1, reset=False)
-            self.reset(temp1)
-            self.reset(temp2)
-        def default():
-            self.inc(temp1)
-            self.algorithm("gt")
-            self.pointer = temp2
-        self.ifelse(self.eq(temp1, 255), edge, default)
-        self.free(reset=True)
-        self.free(4)
-        return result        
-    
-    def ltl(self, cell, value):
-        result = self.malloc()
-        self.move(self.not_(self.gtEql(cell, value)), result)
-        self.free(2, reset=True)
-        return result
-    
-    def ltr(self, value, cell):
-        result = self.malloc()
-        self.move(self.not_(self.gtEqr(value, cell)), result)
-        self.free(2, reset=True)
+        self.free(5)
         return result
     
     def ltVar(self, cell1, cell2):
-        result = self.malloc()
-        self.move(self.not_(self.gtEqVar(cell1, cell2)), result)
-        self.free(2, reset=True)
+        result, temp1, temp2, temp3, temp4, temp5 = self.malloc(6)
+        self.setVar(temp1, cell2, reset=False)
+        self.setVar(temp2, cell1, reset=False)
+        self.goto(temp3)
+        self.algorithm("lt")
+        self.free(5)
         return result
+
+    def ltl(self, cell, value):
+        result, temp1, temp2, temp3, temp4, temp5 = self.malloc(6)
+        self.set(temp1, value, reset=False)
+        self.setVar(temp2, cell, reset=False)
+        self.goto(temp3)
+        self.algorithm("lt")
+        self.free(5)
+        return result
+
+    def ltr(self, value, cell):
+        result, temp1, temp2, temp3, temp4, temp5 = self.malloc(6)
+        self.setVar(temp1, cell, reset=False)
+        self.set(temp2, value, reset=False)
+        self.goto(temp3)
+        self.algorithm("lt")
+        self.free(5)
+        return result
+
+    def gtEqVar(self, cell1, cell2):
+        result, temp1, temp2, temp3, temp4, temp5 = self.malloc(6)
+        self.setVar(temp1, cell2, reset=False)
+        self.setVar(temp2, cell1, reset=False)
+        self.goto(temp3)
+        self.algorithm("gtEq")
+        self.free(5)
+        return result
+
+    def gtEql(self, cell, value):
+        result, temp1, temp2, temp3, temp4, temp5 = self.malloc(6)
+        self.set(temp1, value, reset=False)
+        self.setVar(temp2, cell, reset=False)
+        self.goto(temp3)
+        self.algorithm("gtEq")
+        self.free(5)
+        return result
+
+    def gtEqr(self, value, cell):
+        result, temp1, temp2, temp3, temp4, temp5 = self.malloc(6)
+        self.setVar(temp1, cell, reset=False)
+        self.set(temp2, value, reset=False)
+        self.goto(temp3)
+        self.algorithm("gtEq")
+        self.free(5)
+        return result 
     
+    def ltEqVar(self, cell1, cell2):
+        result, temp1, temp2, temp3, temp4, temp5 = self.malloc(6)
+        self.setVar(temp1, cell2, reset=False)
+        self.setVar(temp2, cell1, reset=False)
+        self.goto(temp3)
+        self.algorithm("ltEq")
+        self.free(5)
+        return result
+
     def ltEql(self, cell, value):
-        result = self.malloc()
-        self.move(self.not_(self.gtl(cell, value)), result)
-        self.free(2, reset=True)
+        result, temp1, temp2, temp3, temp4, temp5 = self.malloc(6)
+        self.set(temp1, value, reset=False)
+        self.setVar(temp2, cell, reset=False)
+        self.goto(temp3)
+        self.algorithm("ltEq")
+        self.free(5)
         return result
 
     def ltEqr(self, value, cell):
-        result = self.malloc()
-        self.move(self.not_(self.gtr(value, cell)), result)
-        self.free(2, reset=True)
-        return result
-                        
-    def ltEqVar(self, cell1, cell2):
-        result = self.malloc()
-        self.move(self.not_(self.gtVar(cell1, cell2)), result)
-        self.free(2, reset=True)
-        return result
+        result, temp1, temp2, temp3, temp4, temp5 = self.malloc(6)
+        self.setVar(temp1, cell, reset=False)
+        self.set(temp2, value, reset=False)
+        self.goto(temp3)
+        self.algorithm("ltEq")
+        self.free(5)
+        return result 
 
     # Control Flow
 
@@ -596,9 +595,9 @@ class bf_compiler:
         self.free(reset=True)
 
     def printArr(self, arr):
-        for cell in self.get(arr):
-            self.goto(cell)
-            self.print(cell)
+        self.goto(self.index(arr, 0))
+        self.algorithm("printArr")
+        self.pointer = self.arrAccessCell(arr, 3)
         return arr
 
     def input(self):
@@ -619,24 +618,15 @@ class bf_compiler:
         self.algorithm("inputArr", 1)
         self.code += (len_) * "+"
         self.algorithm("inputArr", 2)
+        self.reset(self.index(result, len_-1))
         return result
     
     # Arrays
-
-    def resetArr(self, arr):
-        for cell in self.get(arr):
-            self.reset(cell)
-        return arr
 
     def setArr(self, arr, values, reset=True):
         for i, value in enumerate(values):
             self.set(self.index(arr, i), value, reset=reset)
         return arr
-
-    def moveArr(self, arr1, arr2, reset=True):
-        for i in range(self.length(arr2)):
-            self.move(self.index(arr1, i), self.index(arr2, i), reset=reset)
-        return arr2
 
     def copyArr(self, arr1, arr2, reset=True):
         for i in range(self.length(arr2)):
@@ -660,7 +650,6 @@ class bf_compiler:
         self.setVar(temp2, temp1, reset=False)
         self.set(temp3, value, reset=False)
         self.goto(temp1)
-        self.code += "!"
         self.algorithm("indexSet")
         self.pointer = temp2
         return arr
@@ -671,7 +660,6 @@ class bf_compiler:
         self.setVar(temp2, temp1, reset=False)
         self.setVar(temp3, data, reset=False)
         self.goto(temp1)
-        self.code += "!"
         self.algorithm("indexSet")
         self.pointer = temp2
         return arr
@@ -692,19 +680,16 @@ class bf_compiler:
         return self.sub(cell, ord("0"))
 
     def toArr(self, cell):
-        result = self.malloc(3)
+        result = self.mallocArr(4)
         temp = self.index(result, 2)
         self.setVar(temp, cell)
         self.while_(lambda: self.gtEql(temp, 100),
             lambda: (self.dec(temp, 100), self.inc(self.index(result, 0))))
         self.while_(lambda: self.gtEql(temp, 10),
             lambda: (self.dec(temp, 10), self.inc(self.index(result, 1))))
-        self.ifelse(self.index(result, 0),
-            lambda: (self.inc(self.index(result, 0), ord("0")),
-                self.inc(self.index(result, 1), ord("0"))),
-            lambda: self.if_(self.index(result, 1),
-                lambda: self.inc(self.index(result, 1), ord("0"))))
-        self.inc(self.index(result, 2), ord("0"))
+        self.goto(self.arrAccessCell(result, 0))
+        self.algorithm("toArr")
+        self.pointer = self.arrAccessCell(result, 3)
         return result
 
     def toChr(self, cell):

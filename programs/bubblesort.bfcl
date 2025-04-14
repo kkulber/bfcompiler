@@ -1,4 +1,4 @@
-LENGTH @= 5;
+LENGTH @= 3;
 
 .("Bitte geben Sie "); .LENGTH; ." Zahlen an:\n";
 arr<LENGTH> @ list = ,list;

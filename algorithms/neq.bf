@@ -1,6 +1,6 @@
 [[-]>+<]
 
-dec(a, value)
+BEFORE: dec(a, value)
 
 start:  0 a
 pointer: 1

@@ -1,4 +1,5 @@
 from tkinter import *
+import sys
 
 # Constants
 SHOWN_CELL_RANGE = 4
@@ -10,8 +11,8 @@ BUTTON_PADX = 10
 BUTTON_FONT = ("Arial", 15)
 MAX_STEP_TIME = 999
 STEP_TIME_INTEVAL = 499
-MAX_STEP_SIZE = 999
-STEP_SIZE_INTERVAL = 499
+MAX_STEP_SIZE = 99
+STEP_SIZE_INTERVAL = 49
 TITLE_FONT = ("Arial", 20)
 MAX_OUTPUT_LINES = 7
 
@@ -74,6 +75,12 @@ def set_code(event):
     code = code_text.get("1.0", END)
     restart()
 code_text.bind("<KeyRelease>", set_code)
+
+# Insert Code from file
+if len(sys.argv) == 2 and len(sys.argv[1]) > 0:
+    with open(sys.argv[1]) as file:
+        for line in file.readlines():
+            code_text.insert(END, line)
 
 # Control Widgets
 controls = Frame(right)

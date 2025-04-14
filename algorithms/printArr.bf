@@ -1,0 +1,6 @@
+[.>]<[<]
+
+start: 0 a a a ...
+pointer: 1
+end: 0 a a a ...
+pointer: 0

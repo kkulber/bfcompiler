@@ -1,5 +1,5 @@
 from bfcompiler import *
-from sys import argv
+import sys
 
 unary = ["->", "~", "^", ".", ",", "!", "++", "--", "*!"]
 binary = ["[", "*", "/", "%", "+", "-", ">", "<", ">=", "<=", "==", "!=",
@@ -30,11 +30,7 @@ DEBUG_OP_WORDS = {
         "!?": "IFELSE", ":": "FOR"
     }
 
-def get_source():
-    with open(argv[1], "r") as source:
-        return "".join(source.readlines())
-
-def preprocessor(source):
+def process_file(source):
     # Remove Spaces and comments
     trimmed_source = ""
     i = -1
@@ -285,7 +281,7 @@ cells = []
 var_func = {}
 aliases = {}
 DEBUG = False
-if len(argv) == 3 and len(argv[2]) > 0:
+if len(sys.argv) == 3 and len(sys.argv[2]) > 0:
     DEBUG = True 
 
 def eval_function(function, tokens, bf, params=[]):
@@ -445,7 +441,8 @@ def eval_expression(expression, tokens, bf, params):
                             cell[2]),)
                         cells.remove(cell)
                         break
-            bf.setArr(argv[0], argv[1])
+            else:
+                bf.setArr(argv[0], argv[1])
             return "var", argv[0]
         elif argt == ("var", "func"):
             if argv[0] in var_func:
@@ -883,18 +880,19 @@ def eval_expression(expression, tokens, bf, params):
                 f"\nExpression: {expression}")
         
 def compile():
-    tokens = preprocessor(get_source())
+    with open(sys.argv[1]) as source:
+        tokens = process_file("".join(source.readlines()))
     for f in range(len(tokens)):
         for e in range(len(tokens[f])):
             tokens[f][e] = AST(tokens[f][e])
     bf = bf_compiler()
-    result = eval_function(tokens[0], tokens, bf, params=[("str", argv[1])])
+    result = eval_function(tokens[0], tokens, bf, params=[("str", sys.argv[1])])
     if DEBUG:
         print("[DEBUG] Return:", result, 
             "\n[DEBUG] Variable List:", cells, "\n[DEBUG] Alias List:", aliases,
             "\n[DEBUG] Function List:", var_func,
             "\n[DEBUG] Used mem:", bf.used_mem, "\n[DEBUG] Used temp mem:", bf.used_temp,
             "\n[DEBUG] Pointer position:", bf.pointer)
-    bf.result(argv[1][argv[1].find("/")+1:argv[1].find(".")], trimmed=not DEBUG)
+    bf.result(sys.argv[1][sys.argv[1].find("/")+1:sys.argv[1].find(".")], trimmed=not DEBUG)
 
 compile()

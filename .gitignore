@@ -2,5 +2,6 @@ __pycache__/
 bfinterpreter
 test.bfcl
 generated/test.bf
+test.py
 jufo/
 *.swp

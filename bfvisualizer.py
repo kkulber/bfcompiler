@@ -69,19 +69,6 @@ for i in range(2 * SHOWN_CELL_RANGE + 1):
 code_text = Text(left)
 code_text.pack()
 
-def set_code(event):
-    global code
-    update_statistics()
-    code = code_text.get("1.0", END)
-    restart()
-code_text.bind("<KeyRelease>", set_code)
-
-# Insert Code from file
-if len(sys.argv) == 2 and len(sys.argv[1]) > 0:
-    with open(sys.argv[1]) as file:
-        for line in file.readlines():
-            code_text.insert(END, line)
-
 # Control Widgets
 controls = Frame(right)
 controls.pack()
@@ -230,28 +217,36 @@ def execute_command():
             tape += [0]
         pointer += 1
         pointer_movements += 1
-        
+    
     elif code[index] == "[":
-        if tape[tape_pointer] == 0:
-            openings = 1
-            while code[index] != "]" or openings > 0:
-                index += 1
-                if code[index] == "[":
-                    openings += 1
-                elif code[index] == "]":
-                    openings -= 1
-        comparisons += 1
+        try:
+            if tape[tape_pointer] == 0:
+                openings = 1
+                while code[index] != "]" or openings > 0:
+                    index += 1
+                    if code[index] == "[":
+                        openings += 1
+                    elif code[index] == "]":
+                        openings -= 1
+            comparisons += 1
+        except IndexError:
+            print("There seems to be a square bracket mismatch")
+            stop()
                     
     elif code[index] == "]":
-        if tape[tape_pointer] != 0:
-            closings = 1
-            while code[index] != "[" or closings > 0:
-                index -= 1
-                if code[index] == "]":
-                    closings += 1
-                elif code[index] == "[":
-                    closings -= 1
-        comparisons += 1
+        try:
+            if tape[tape_pointer] != 0:
+                closings = 1
+                while code[index] != "[" or closings > 0:
+                    index -= 1
+                    if code[index] == "]":
+                        closings += 1
+                    elif code[index] == "[":
+                        closings -= 1
+            comparisons += 1
+        except IndexError:
+            print("There seems to be a square bracket mismatch")
+            stop()
                     
     elif code[index] == ".":
         output.config(state=NORMAL)
@@ -324,6 +319,13 @@ def update_statistics():
     characters_input_label.config(text=f"Characters Input: {characters_input}")
     cells_used_label.config(text=f"Cells used: {len(tape)}")
 
+def set_code(event):
+    global code
+    update_statistics()
+    code = code_text.get("1.0", END)
+    restart()
+code_text.bind("<KeyRelease>", set_code)
+
 # Lets you scroll the tape if code and output isnt in focus
 def change_tape_focus(event):
     global tape_focus
@@ -370,6 +372,13 @@ def process_input(event):
         execute_command()
         characters_input += 1
 root.bind("<Key>", process_input)
+
+# Insert Code from file
+if len(sys.argv) == 2 and len(sys.argv[1]) > 0:
+    with open(sys.argv[1]) as file:
+        for line in file.readlines():
+            code_text.insert(END, line)
+set_code(None)
 
 # Display empty tape and statistics at start
 update_tape()

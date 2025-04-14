@@ -418,7 +418,7 @@ def eval_expression(expression, tokens, bf, params):
                     bf.setVar(argv[0], argv[1])
                     return "var", argv[0]
             elif get_type(argv[0]) in ("arr", "str") and \
-                    get_type(argv[1]) in ["arr", "str"]:
+                    get_type(argv[1]) in ("arr", "str"):
                     if bf.get(argv[0]) == None:
                         defined = bf.defArr(argv[0], bf.length(argv[1]))
                         for cell in cells:
@@ -467,7 +467,7 @@ def eval_expression(expression, tokens, bf, params):
             bf.setArr(temp, argv[0])
             bf.move(bf.getIndex(temp, argv[1]), cell, reset=False)
             bf.free(reset=True)
-            bf.freeArr(len(argv[0]), reset=True)
+            bf.freeArr(argv[0], reset=True)
             cells += ((cell, None, "int"),)
             return "var", cell
         elif argt == ("str", "var"):
@@ -476,7 +476,7 @@ def eval_expression(expression, tokens, bf, params):
             bf.setArr(temp, argv[0])
             bf.move(bf.getIndex(temp, argv[1]), cell, reset=False)
             bf.free(reset=True)
-            bf.freeArr(len(argv[0]), reset=True)
+            bf.freeArr(argv[0], reset=True)
             cells += ((cell, None, "char"),)
             return "var", cell
         elif argt == ("var", "int"):

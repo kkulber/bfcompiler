@@ -18,22 +18,17 @@ class bf_compiler:
         return self.code
 
     def trim(self):
-        # Remove redundant code after last input/ouput
-        find = max(self.code.rfind("."), self.code.rfind(","))
-        if find == -1:
-            self.code = ""
-            return
-
+        # Remove Operations that undo themselves
+        for seq in "+-", "-+", "<>", "><":
+            while self.code.find(seq) != -1:
+                self.code = self.code.replace(seq, "")
+    
+        # Remove leading pointer moves
         i = 0
-        depth = 0
         while i < len(self.code):
-            if i >= find and depth == 0:
-                self.code = self.code[:i+1]
+            if self.code[i] not in "<>":
+                self.code = self.code[i:]
                 break
-            if self.code[i] == "[":
-                depth += 1
-            elif self.code[i] == "]":
-                depth -= 1
             i += 1
 
         # Remove unenterable brackets
@@ -48,19 +43,23 @@ class bf_compiler:
                 i += 1
             self.code = self.code[:self.code.find("][")+1] + self.code[i:]
 
-        # Remove Operations that undo themselves
-            for seq in "+-", "-+", "<>", "><":
-                while self.code.find(seq) != -1:
-                    self.code = self.code.replace(seq, "")
-        
-        # Remove leading pointer moves
-        i = 0
-        while i < len(self.code):
-            if self.code[i] not in "<>":
-                self.code = self.code[i:]
-                break
-            i += 1
-
+        # Remove redundant code after last input/ouput
+        find = max(self.code.rfind("."), self.code.rfind(","))
+        if find == -1:
+            self.code = ""
+        else:
+            i = 0
+            depth = 0
+            while i < len(self.code):
+                if i >= find and depth == 0:
+                    self.code = self.code[:i]
+                    break
+                if self.code[i] == "[":
+                    depth += 1
+                elif self.code[i] == "]":
+                    depth -= 1
+                i += 1
+            
 
     def algorithm(self, filename, part=0):
         file = open(f"algorithms/{filename}.bf", "r")
@@ -144,11 +143,11 @@ class bf_compiler:
                 self.reset(cell)
         self.used_temp -= num
 
-    def freeArr(self, num, reset=False):
+    def freeArr(self, arr, reset=False):
         if reset:
-            for cell in range(-self.used_temp + 4, -self.used_temp + num + 4):
+            for cell in range(-self.used_temp + 4, -self.used_temp + self.length(arr) + 4):
                 self.reset(cell)
-        self.used_temp -= num + 4
+        self.used_temp -= self.length(arr) + 4
 
     def saveMemState(self):
         return self.used_temp
@@ -165,10 +164,16 @@ class bf_compiler:
         diff = cell - self.pointer
         self.pointer = cell
         if diff > 0:
-            self.code += abs(diff) * ">"
+            self.code += diff * ">"
         else:
-            self.code += abs(diff) * "<"
+            self.code += -diff * "<"
         return cell
+
+    def goto_rel(self, diff):
+        if diff > 0:
+            self.code += diff * ">"
+        else:
+            self.code += -diff * "<"
 
     def reset(self, cell):
         self.goto(cell)
@@ -234,6 +239,7 @@ class bf_compiler:
 
 
     # Arithmetic
+
     def add(self, cell, value):
         result = self.malloc()
         self.setVar(result, cell, reset=False)
@@ -265,12 +271,15 @@ class bf_compiler:
         return result
 
     def mul(self, cell, value):
-        result, temp = self.malloc(2)
-        self.set(temp, value, reset=False)
-        self.move(self.mulVar(cell, temp), result)
-        self.free(2, reset=True)
+        result, temp1, temp2 = self.malloc(3)
+        self.setVar(temp1, cell, reset=False)
+        self.set(temp2, value, reset=False)
+        self.goto(temp1)
+        self.algorithm("mul")
+        self.pointer = temp2
+        self.free(2)
         return result
-
+    
     def mulVar(self, cell1, cell2):
         result, temp1, temp2 = self.malloc(3)
         self.setVar(temp1, cell1, reset=False)
@@ -281,31 +290,37 @@ class bf_compiler:
         self.free(2)
         return result
 
+    def divModVar(self, cell1, cell2):
+        quotient, remainder, temp0, temp1, temp2, temp3 = self.malloc(6)
+        self.setVar(temp3, cell1, reset=False)
+        self.setVar(temp2, cell2, reset=False)
+        self.goto(temp1)
+        self.algorithm("divMod")
+        self.pointer = temp0
+        self.free(4)
+        return quotient, remainder
+
     def divModl(self, cell, value):
-        div, mod = self.malloc(2)
-        self.setVar(mod, cell, reset=False)
-        self.while_(lambda: self.gtEql(mod, value),
-            lambda: (self.dec(mod, value), self.inc(div, 1)))
-        return div, mod
+        quotient, remainder, temp0, temp1, temp2, temp3 = self.malloc(6)
+        self.setVar(temp3, cell, reset=False)
+        self.set(temp2, value, reset=False)
+        self.goto(temp1)
+        self.algorithm("divMod")
+        self.pointer = temp0
+        self.free(4)
+        return quotient, remainder
     
     def divModr(self, value, cell):
-        div, mod, temp = self.malloc(3)
-        self.set(mod, value, reset=False)
-        self.setVar(temp, cell, reset=False)
-        self.while_(lambda: self.gtEqVar(mod, temp),
-            lambda: (self.setVar(mod, self.subVar(mod, temp)), self.inc(div)))
-        self.free(reset=True)
-        return div, mod
+        quotient, remainder, temp0, temp1, temp2, temp3 = self.malloc(6)
+        self.set(temp3, value, reset=False)
+        self.setVar(temp2, cell, reset=False)
+        self.goto(temp1)
+        self.algorithm("divMod")
+        self.pointer = temp0
+        self.free(4)
+        return quotient, remainder
 
-    def divModVar(self, cell1, cell2):
-        div, mod, temp = self.malloc(3)
-        self.setVar(mod, cell1, reset=False)
-        self.setVar(temp, cell2, reset=False)
-        self.while_(lambda: self.gtEqVar(mod, temp),
-            lambda: (self.setVar(mod, self.subVar(mod, temp)), self.inc(div)))
-        self.free(reset=True)
-        return div, mod
-    
+
     # Logic
 
     def not_(self, cell):
@@ -335,6 +350,7 @@ class bf_compiler:
         self.pointer = temp2
         self.free(2)
         return result
+
 
     # Comparison
 
@@ -488,6 +504,7 @@ class bf_compiler:
         self.free(5)
         return result 
 
+
     # Control Flow
 
     def if_(self, cell, do):
@@ -577,6 +594,7 @@ class bf_compiler:
             self.inc(param)
         self.for_(start, cond, step, do)
 
+
     # IO
 
     def print(self, cell):
@@ -621,7 +639,11 @@ class bf_compiler:
         self.reset(self.index(result, len_-1))
         return result
     
+
     # Arrays
+
+    def clearArr(self, arr):
+        pass
 
     def setArr(self, arr, values, reset=True):
         for i, value in enumerate(values):
@@ -629,8 +651,17 @@ class bf_compiler:
         return arr
 
     def copyArr(self, arr1, arr2, reset=True):
-        for i in range(self.length(arr2)):
-            self.setVar(self.index(arr2, i), self.index(arr1, i), reset=reset)
+        if reset:
+            self.clearArr(arr2)
+        self.set(self.arrAccessCell(arr1, 2), self.length(arr1))
+        self.set(self.arrAccessCell(arr1, 3), self.length(arr1))
+        self.goto(self.arrAccessCell(arr1, 3))
+        self.algorithm("copyArr", 0)
+        self.goto_rel(self.index(arr2, 0) - self.index(arr1, 0) + 3)
+        self.algorithm("copyArr", 1)
+        self.goto_rel(-(self.index(arr2, 0) - self.index(arr1, 0) + 3))
+        self.algorithm("copyArr", 2)
+        self.pointer = self.arrAccessCell(arr1, 2)
         return arr2
 
     def getIndex(self, arr, index):
@@ -664,6 +695,7 @@ class bf_compiler:
         self.pointer = temp2
         return arr
 
+
     # Datatype Conversion
 
     def toInt(self, arr):
@@ -671,8 +703,7 @@ class bf_compiler:
         self.copyArr(arr, temp)
         self.goto(self.index(temp, 0))
         self.algorithm("toInt")
-        self.pointer = self.index(temp, 2)
-        self.freeArr(4)
+        self.freeArr(temp)
         result = self.malloc()
         return result
     
@@ -687,9 +718,9 @@ class bf_compiler:
             lambda: (self.dec(temp, 100), self.inc(self.index(result, 0))))
         self.while_(lambda: self.gtEql(temp, 10),
             lambda: (self.dec(temp, 10), self.inc(self.index(result, 1))))
-        self.goto(self.arrAccessCell(result, 0))
-        self.algorithm("toArr")
-        self.pointer = self.arrAccessCell(result, 3)
+        self.inc(self.index(result, 0), ord('0'))
+        self.inc(self.index(result, 1), ord('0'))
+        self.inc(self.index(result, 2), ord('0'))
         return result
 
     def toChr(self, cell):

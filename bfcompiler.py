@@ -9,8 +9,9 @@ class bf_compiler:
     def result(self, filename, trimmed=True):
         if trimmed:
             self.trim()
+        instr = sum([self.code.count(instr) for instr in ["+", "-", "<", ">", ".", ",", "[", "]"]])
         print("Program compiled successfully!\n" + 
-            f"Generated brainf*ck program has a length of {len(self.code)} instructions.")
+            f"Generated brainf*ck program has a length of {instr} instructions.")
         file = open(f"generated/{filename}.bf", "w")
         file.write(self.code)
         file.close()
@@ -84,20 +85,18 @@ class bf_compiler:
 
     def index(self, arr, index):
         if type(arr) != str:
-            return arr[index]
-        return self.vars[arr][index]
-
+            return arr[0] + index
+        return self.vars[arr][0] + index
+    
     def length(self, arr):
         if type(arr) != str:
-            return len(arr)
-        return len(self.vars[arr])
+            return arr[1]
+        return self.vars[arr][1]
 
 
     # Memory Allocation
 
     def def_(self, name, value=0):
-        if type(value) == bool:
-            value = int(value)
         if type(value) == str:
                 value = ord(value)
         free = self.used_mem
@@ -109,33 +108,49 @@ class bf_compiler:
 
     def defArr(self, name, values):
         if type(values) == str:
-              values = list(values) + [0]
+            values = list(values) + [0]
         if type(values) == int:
-            values = values*(0,)
-        free = tuple(range(self.used_mem + 4, self.used_mem + len(values) + 4))
-        self.used_mem += len(values) + 4
+            length = values
+        else:
+            length = len(values)
+        free = (self.used_mem + 4, length)
+        self.used_mem += length + 4
         self.vars[name] = free
-        for i in range(len(values)):
-            if values[i] != 0:
-                     self.set(free[i], values[i], reset=False)
+        if type(values) != int:
+            self.setArr(free, values, reset=False)
+        return free
+    
+    def defBig(self, name, size, value=0):
+        free = (self.used_mem, size)
+        self.vars[name] = free
+        self.used_mem += size
+        if value != 0:
+            self.setBig(free, value)
         return free
 
-    def malloc(self, num=None):
-        if num == None:
+    def malloc(self, num=1):
+        if num == 1:
             free = -(self.used_temp + 1)
-            num = 1
         else:
             free = tuple(range(-(self.used_temp + 1), -(self.used_temp + 1 + num), -1))
         self.used_temp += num
         return free
 
-    def mallocArr(self, num=None):
-        free = tuple(range(-(self.used_temp + 1), -(self.used_temp + 1 + num), -1))[::-1]
+    def mallocArr(self, num):
+        free = (-(self.used_temp + num), num)
         self.used_temp += num + 4
+        return free
+    
+    def mallocBig(self, size, num=1):
+        if num == 1:
+            free = (-(self.used_temp + size), size)
+        else:
+            free = tuple((-(self.used_temp + size * i), size) for i in range(1, num + 1))
+        self.used_temp += num * size
         return free
 
     def arrAccessCell(self, arr, num):
-        return self.get(arr)[0] - (4 - num)
+        return self.get(arr)[0] - num - 1
 
     def free(self, num=1, reset=False):
         if reset:
@@ -145,9 +160,14 @@ class bf_compiler:
 
     def freeArr(self, arr, reset=False):
         if reset:
-            for cell in range(-self.used_temp + 4, -self.used_temp + self.length(arr) + 4):
+            self.resetArr(arr)
+        self.used_temp -= arr[1] + 4
+
+    def freeBig(self, size, num=1, reset=False):
+        if reset:
+            for cell in range(-self.used_temp, -self.used_temp + num * size):
                 self.reset(cell)
-        self.used_temp -= self.length(arr) + 4
+        self.used_temp -= num * size
 
     def saveMemState(self):
         return self.used_temp
@@ -169,7 +189,7 @@ class bf_compiler:
             self.code += -diff * "<"
         return cell
 
-    def goto_rel(self, diff):
+    def gotoRel(self, diff):
         if diff > 0:
             self.code += diff * ">"
         else:
@@ -191,6 +211,14 @@ class bf_compiler:
         else:
             self.code += (256 - value) * "-"
         return cell
+    
+    def setRel(self, value):
+        if type(value) == str:
+            value = ord(value)
+        if value < 128:
+            self.code += value * "+"
+        else:
+            self.code += (256 - value) * "-"
 
     def move(self, from_, to, reset=True):
         if reset:
@@ -202,7 +230,7 @@ class bf_compiler:
         self.code += "]"
         return to
 
-    def setVar(self, to, from_, reset=True, negate=False):
+    def copy(self, from_, to, reset=True, negate=False):
         if reset:
             self.reset(to)
         temp = self.malloc()
@@ -242,37 +270,37 @@ class bf_compiler:
 
     def add(self, cell, value):
         result = self.malloc()
-        self.setVar(result, cell, reset=False)
+        self.copy(cell, result, reset=False)
         self.inc(result, value)
         return result
 
     def addVar(self, cell1, cell2):
         result = self.malloc()
-        self.setVar(result, cell1, reset=False)
-        self.setVar(result, cell2, reset=False)
+        self.copy(cell1, result, reset=False)
+        self.copy(cell2, result, reset=False)
         return result
 
     def subl(self, cell, value):
         result = self.malloc()
-        self.setVar(result, cell, reset=False)
+        self.copy(cell, result, reset=False)
         self.dec(result, value)
         return result
 
     def subr(self, value, cell):
         result = self.malloc()
         self.set(result, value, reset=False)
-        self.setVar(result, cell, reset=False, negate=True)
+        self.copy(cell, result, reset=False, negate=True)
         return result
 
     def subVar(self, cell1, cell2):
         result = self.malloc()
-        self.setVar(result, cell1, reset=False)
-        self.setVar(result, cell2, reset=False, negate=True)
+        self.copy(cell1, result, reset=False)
+        self.copy(cell2, result, reset=False, negate=True)
         return result
 
     def mul(self, cell, value):
         result, temp1, temp2 = self.malloc(3)
-        self.setVar(temp1, cell, reset=False)
+        self.copy(cell, temp1, reset=False)
         self.set(temp2, value, reset=False)
         self.goto(temp1)
         self.algorithm("mul")
@@ -282,8 +310,8 @@ class bf_compiler:
     
     def mulVar(self, cell1, cell2):
         result, temp1, temp2 = self.malloc(3)
-        self.setVar(temp1, cell1, reset=False)
-        self.setVar(temp2, cell2, reset=False)
+        self.copy(cell1, temp1, reset=False)
+        self.copy(cell2, temp2, reset=False)
         self.goto(temp1)
         self.algorithm("mul")
         self.pointer = temp2
@@ -292,8 +320,8 @@ class bf_compiler:
 
     def divModVar(self, cell1, cell2):
         quotient, remainder, temp0, temp1, temp2, temp3 = self.malloc(6)
-        self.setVar(temp3, cell1, reset=False)
-        self.setVar(temp2, cell2, reset=False)
+        self.copy(cell1, temp3, reset=False)
+        self.copy(cell2, temp2, reset=False)
         self.goto(temp1)
         self.algorithm("divMod")
         self.pointer = temp0
@@ -302,7 +330,7 @@ class bf_compiler:
 
     def divModl(self, cell, value):
         quotient, remainder, temp0, temp1, temp2, temp3 = self.malloc(6)
-        self.setVar(temp3, cell, reset=False)
+        self.copy(cell, temp3, reset=False)
         self.set(temp2, value, reset=False)
         self.goto(temp1)
         self.algorithm("divMod")
@@ -313,7 +341,7 @@ class bf_compiler:
     def divModr(self, value, cell):
         quotient, remainder, temp0, temp1, temp2, temp3 = self.malloc(6)
         self.set(temp3, value, reset=False)
-        self.setVar(temp2, cell, reset=False)
+        self.copy(cell, temp2, reset=False)
         self.goto(temp1)
         self.algorithm("divMod")
         self.pointer = temp0
@@ -325,7 +353,7 @@ class bf_compiler:
 
     def not_(self, cell):
         result, temp = self.malloc(2)
-        self.setVar(result, cell, reset=False)
+        self.copy(cell, result, reset=False)
         self.goto(temp)
         self.algorithm("not")
         self.free()
@@ -333,8 +361,8 @@ class bf_compiler:
 
     def and_(self, cell1, cell2):
         result, temp1, temp2 = self.malloc(3)
-        self.setVar(temp1, cell1)
-        self.setVar(temp2, cell2)
+        self.copy(cell1, temp1)
+        self.copy(cell2, temp2)
         self.goto(temp1)
         self.algorithm("and")
         self.pointer = temp2
@@ -343,8 +371,8 @@ class bf_compiler:
 
     def or_(self, cell1, cell2):
         result, temp1, temp2 = self.malloc(3)
-        self.setVar(temp1, cell1)
-        self.setVar(temp2, cell2)
+        self.copy(cell1, temp1)
+        self.copy(cell2, temp2)
         self.goto(temp1)
         self.algorithm("or")
         self.pointer = temp2
@@ -356,8 +384,8 @@ class bf_compiler:
 
     def eqVar(self, cell1, cell2):
         result, temp = self.malloc(2)
-        self.setVar(result, cell1)
-        self.setVar(temp, cell2)
+        self.copy(cell1, result)
+        self.copy(cell2, temp)
         self.goto(result)
         self.algorithm("eqVar")
         self.pointer = temp
@@ -368,7 +396,7 @@ class bf_compiler:
         if type(value) == str:
             value = ord(value)
         result, temp = self.malloc(2)
-        self.setVar(temp, cell, reset=False)
+        self.copy(cell, temp, reset=False)
         self.dec(temp, value)
         self.goto(temp)
         self.algorithm("eq")
@@ -377,8 +405,8 @@ class bf_compiler:
 
     def neqVar(self, cell1, cell2):
         result, temp1, temp2 = self.malloc(3)
-        self.setVar(temp1, cell1, reset=False)
-        self.setVar(temp2, cell2, reset=False)
+        self.copy(cell1, temp1, reset=False)
+        self.copy(cell2, temp2, reset=False)
         self.goto(temp1)
         self.algorithm("neqVar")
         self.pointer = temp2
@@ -389,7 +417,7 @@ class bf_compiler:
         if type(value) == str:
             value = ord(value)
         result, temp = self.malloc(2)
-        self.setVar(temp, cell, reset=False)
+        self.copy(cell, temp, reset=False)
         self.dec(temp, value)
         self.goto(temp)
         self.algorithm("neq")
@@ -399,7 +427,7 @@ class bf_compiler:
     def gtl(self, cell, value):
         result, temp1, temp2, temp3, temp4, temp5 = self.malloc(6)
         self.set(temp1, value, reset=False)
-        self.setVar(temp2, cell, reset=False)
+        self.copy(cell, temp2, reset=False)
         self.goto(temp3)
         self.algorithm("gt")
         self.free(5)
@@ -407,7 +435,7 @@ class bf_compiler:
 
     def gtr(self, value, cell):
         result, temp1, temp2, temp3, temp4, temp5 = self.malloc(6)
-        self.setVar(temp1, cell, reset=False)
+        self.copy(cell, temp1, reset=False)
         self.set(temp2, value, reset=False)
         self.goto(temp3)
         self.algorithm("gt")
@@ -416,8 +444,8 @@ class bf_compiler:
 
     def gtVar(self, cell1, cell2):
         result, temp1, temp2, temp3, temp4, temp5 = self.malloc(6)
-        self.setVar(temp1, cell2, reset=False)
-        self.setVar(temp2, cell1, reset=False)
+        self.copy(cell2, temp1, reset=False)
+        self.copy(cell1, temp2, reset=False)
         self.goto(temp3)
         self.algorithm("gt")
         self.free(5)
@@ -425,8 +453,8 @@ class bf_compiler:
     
     def ltVar(self, cell1, cell2):
         result, temp1, temp2, temp3, temp4, temp5 = self.malloc(6)
-        self.setVar(temp1, cell2, reset=False)
-        self.setVar(temp2, cell1, reset=False)
+        self.copy(cell2, temp1, reset=False)
+        self.copy(cell1, temp2, reset=False)
         self.goto(temp3)
         self.algorithm("lt")
         self.free(5)
@@ -435,7 +463,7 @@ class bf_compiler:
     def ltl(self, cell, value):
         result, temp1, temp2, temp3, temp4, temp5 = self.malloc(6)
         self.set(temp1, value, reset=False)
-        self.setVar(temp2, cell, reset=False)
+        self.copy(cell, temp2, reset=False)
         self.goto(temp3)
         self.algorithm("lt")
         self.free(5)
@@ -443,7 +471,7 @@ class bf_compiler:
 
     def ltr(self, value, cell):
         result, temp1, temp2, temp3, temp4, temp5 = self.malloc(6)
-        self.setVar(temp1, cell, reset=False)
+        self.copy(cell, temp1, reset=False)
         self.set(temp2, value, reset=False)
         self.goto(temp3)
         self.algorithm("lt")
@@ -452,8 +480,8 @@ class bf_compiler:
 
     def gtEqVar(self, cell1, cell2):
         result, temp1, temp2, temp3, temp4, temp5 = self.malloc(6)
-        self.setVar(temp1, cell2, reset=False)
-        self.setVar(temp2, cell1, reset=False)
+        self.copy(cell2, temp1, reset=False)
+        self.copy(cell1, temp2, reset=False)
         self.goto(temp3)
         self.algorithm("gtEq")
         self.free(5)
@@ -462,7 +490,7 @@ class bf_compiler:
     def gtEql(self, cell, value):
         result, temp1, temp2, temp3, temp4, temp5 = self.malloc(6)
         self.set(temp1, value, reset=False)
-        self.setVar(temp2, cell, reset=False)
+        self.copy(cell, temp2, reset=False)
         self.goto(temp3)
         self.algorithm("gtEq")
         self.free(5)
@@ -470,7 +498,7 @@ class bf_compiler:
 
     def gtEqr(self, value, cell):
         result, temp1, temp2, temp3, temp4, temp5 = self.malloc(6)
-        self.setVar(temp1, cell, reset=False)
+        self.copy(cell, temp1, reset=False)
         self.set(temp2, value, reset=False)
         self.goto(temp3)
         self.algorithm("gtEq")
@@ -479,8 +507,8 @@ class bf_compiler:
     
     def ltEqVar(self, cell1, cell2):
         result, temp1, temp2, temp3, temp4, temp5 = self.malloc(6)
-        self.setVar(temp1, cell2, reset=False)
-        self.setVar(temp2, cell1, reset=False)
+        self.copy(cell2, temp1, reset=False)
+        self.copy(cell1, temp2, reset=False)
         self.goto(temp3)
         self.algorithm("ltEq")
         self.free(5)
@@ -489,7 +517,7 @@ class bf_compiler:
     def ltEql(self, cell, value):
         result, temp1, temp2, temp3, temp4, temp5 = self.malloc(6)
         self.set(temp1, value, reset=False)
-        self.setVar(temp2, cell, reset=False)
+        self.copy(cell, temp2, reset=False)
         self.goto(temp3)
         self.algorithm("ltEq")
         self.free(5)
@@ -497,7 +525,7 @@ class bf_compiler:
 
     def ltEqr(self, value, cell):
         result, temp1, temp2, temp3, temp4, temp5 = self.malloc(6)
-        self.setVar(temp1, cell, reset=False)
+        self.copy(cell, temp1, reset=False)
         self.set(temp2, value, reset=False)
         self.goto(temp3)
         self.algorithm("ltEq")
@@ -509,7 +537,7 @@ class bf_compiler:
 
     def if_(self, cell, do):
         temp = self.malloc()
-        self.setVar(temp, cell, reset=False)
+        self.copy(cell, temp, reset=False)
         self.goto(temp)
         self.code += "["
         memState = self.saveMemState()
@@ -521,7 +549,7 @@ class bf_compiler:
 
     def ifelse(self, cell, ifDo, elseDo):
         temp1, temp2 = self.malloc(2)
-        self.setVar(temp1, cell, reset=False)
+        self.copy(cell, temp1, reset=False)
         self.inc(temp2)
         self.goto(temp1)
         self.code += "["
@@ -543,13 +571,13 @@ class bf_compiler:
     def while_(self, cond, do):
         temp = self.malloc()
         memState = self.saveMemState()
-        self.setVar(temp, cond())
+        self.copy(cond(), temp)
         self.loadMemState(memState)
         self.goto(temp)
         self.code += "["
         do()
         self.loadMemState(memState)
-        self.setVar(temp, cond())
+        self.copy(cond(), temp)
         self.loadMemState(memState)
         self.goto(temp)
         self.code += "]"
@@ -559,14 +587,14 @@ class bf_compiler:
         cell, temp = self.malloc(2)
         start(param=cell)
         memState = self.saveMemState()
-        self.setVar(temp, cond(param=cell))
+        self.copy(cond(param=cell), temp)
         self.loadMemState(memState)
         self.goto(temp)
         self.code += "["
         do(param=cell)
         step(param=cell)
         self.loadMemState(memState)
-        self.setVar(temp, cond(param=cell))
+        self.copy(cond(param=cell), temp)
         self.loadMemState(memState)
         self.goto(temp)
         self.code += "]"
@@ -615,7 +643,7 @@ class bf_compiler:
     def printArr(self, arr):
         self.goto(self.index(arr, 0))
         self.algorithm("printArr")
-        self.pointer = self.arrAccessCell(arr, 3)
+        self.pointer = self.arrAccessCell(arr, 0)
         return arr
 
     def input(self):
@@ -629,8 +657,7 @@ class bf_compiler:
 
     def inputArr(self, len_=4):
         result = self.mallocArr(len_)
-        temp = self.arrAccessCell(result, 0)
-        self.set(temp, len_, reset=False)
+        self.set(self.arrAccessCell(result, 3), len_, reset=False)
         self.algorithm("inputArr", 0)
         self.code += (len_) * "+"
         self.algorithm("inputArr", 1)
@@ -643,7 +670,7 @@ class bf_compiler:
     # Arrays
 
     def resetArr(self, arr):
-        self.set(self.arrAccessCell(arr, 3), self.length(arr))
+        self.set(self.arrAccessCell(arr, 0), self.length(arr))
         self.algorithm("resetArr")
         self.pointer = self.index(arr, self.length(arr)-1)
         return arr
@@ -656,45 +683,43 @@ class bf_compiler:
     def copyArr(self, arr1, arr2, reset=True):
         if reset:
             self.resetArr(arr2)
-        self.set(self.arrAccessCell(arr1, 2), self.length(arr1))
-        self.set(self.arrAccessCell(arr1, 3), self.length(arr1))
-        self.goto(self.arrAccessCell(arr1, 3))
+        self.set(self.arrAccessCell(arr1, 1), self.length(arr1))
+        self.set(self.arrAccessCell(arr1, 0), self.length(arr1))
+        self.goto(self.arrAccessCell(arr1, 0))
         self.algorithm("copyArr", 0)
-        self.goto_rel(self.index(arr2, 0) - self.index(arr1, 0) + 3)
+        self.gotoRel(self.index(arr2, 0) - self.index(arr1, 0) + 3)
         self.algorithm("copyArr", 1)
-        self.goto_rel(-(self.index(arr2, 0) - self.index(arr1, 0) + 3))
+        self.gotoRel(-(self.index(arr2, 0) - self.index(arr1, 0) + 3))
         self.algorithm("copyArr", 2)
-        self.pointer = self.arrAccessCell(arr1, 2)
+        self.pointer = self.arrAccessCell(arr1, 1)
         return arr2
 
     def getIndex(self, arr, index):
         result = self.malloc()
         temp0, temp1, temp2, temp3 = list(range(min(self.get(arr)) - 4, min(self.get(arr))))
-        self.setVar(temp1, index, reset=False)
-        self.setVar(temp2, temp1, reset=False)
+        self.copy(index, temp1, reset=False)
         self.goto(temp1)
-        self.algorithm("indexGet")
+        self.algorithm("getIndex")
         self.pointer = temp3
         self.move(temp0, result)
         return result
 
     def setIndex(self, arr, index, value):
         temp0, temp1, temp2, temp3 = list(range(self.index(arr, 0) - 4, self.index(arr, 0)))
-        self.setVar(temp1, index, reset=False)
-        self.setVar(temp2, temp1, reset=False)
-        self.set(temp3, value, reset=False)
+        self.copy(index, temp1, reset=False)
         self.goto(temp1)
-        self.algorithm("indexSet")
+        self.algorithm("setIndex", 0)
+        self.setRel(value)
+        self.algorithm("setIndex", 1)
         self.pointer = temp2
         return arr
 
     def setIndexVar(self, arr, index, data):
         temp0, temp1, temp2, temp3 = list(range(self.index(arr, 0) - 4, self.index(arr, 0)))
-        self.setVar(temp1, index, reset=False)
-        self.setVar(temp2, temp1, reset=False)
-        self.setVar(temp3, data, reset=False)
+        self.copy(index, temp1, reset=False)
+        self.copy(data, temp3, reset=False)
         self.goto(temp1)
-        self.algorithm("indexSet")
+        self.algorithm("setIndexVar")
         self.pointer = temp2
         return arr
 
@@ -715,11 +740,27 @@ class bf_compiler:
 
     def toArr(self, cell):
         result = self.mallocArr(4)
-        self.setVar(self.arrAccessCell(result, 0), cell, reset=False)
-        self.goto(self.arrAccessCell(result, 1))
+        self.copy(cell, self.arrAccessCell(result, 3), reset=False)
+        self.goto(self.arrAccessCell(result, 2))
         self.algorithm("toArr")
         self.pointer = self.index(result, 0)
         return result
 
     def toChr(self, cell):
         return self.add(cell, ord("0"))
+    
+
+    ## Big Number Operations
+
+    # Cell Management
+
+    def resetBig(self, big):
+        for i in range(self.length(big)):
+            self.reset(self.index(big, i))
+
+    def setBig(self, big, value, reset=True):
+        remainder = value
+        for i in range(self.length(big)):
+            print(self.index(big, i))
+            self.set(self.index(big, i), remainder // 256 ** (self.length(big) - 1 - i), reset=reset)
+            remainder = remainder % 256 ** (self.length(big) - 1 - i)

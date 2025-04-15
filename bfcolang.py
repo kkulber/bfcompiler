@@ -367,7 +367,7 @@ def eval_expression(expression, tokens, bf, params):
             if get_type(argv[0]) == "int" and argv[1] == "char" or\
                 get_type(argv[0]) == "char" and argv[1] == "int":
                     cell = bf.malloc()
-                    bf.setVar(cell, argv[0])
+                    bf.copy(argv[0], cell)
                     cells += ((cell, None, argv[1]),)
                     return "var", cell
             elif get_type(argv[0]) == "arr" and argv[1] == "str" or\
@@ -415,7 +415,7 @@ def eval_expression(expression, tokens, bf, params):
         if argt == ("var", "var"):
             if get_type(argv[0]) in ("int", "char") and \
                     get_type(argv[1]) in ("int", "char"):
-                    bf.setVar(argv[0], argv[1])
+                    bf.copy(argv[1], argv[0])
                     return "var", argv[0]
             elif get_type(argv[0]) in ("arr", "str") and \
                     get_type(argv[1]) in ("arr", "str"):
@@ -498,7 +498,7 @@ def eval_expression(expression, tokens, bf, params):
             bf.setIndex(argv[0], argv[1], argv[2])
             return "var", argv[0]
         elif argt == ("var", "int", "var"):
-            bf.setVar(bf.index(argv[0], argv[1]), argv[2])    
+            bf.copy(argv[2], bf.index(argv[0], argv[1]))    
             return "var", argv[0]
         elif argt == ("var", "int", "int") or argt == ("var", "int", "char"):
             bf.set(bf.index(argv[0], argv[1]), argv[2])
@@ -521,7 +521,7 @@ def eval_expression(expression, tokens, bf, params):
             if argv[1]:
                 bf.set(cell, 1)
             else:
-                bf.setVar(cell, argv[0])
+                bf.copy(argv[0], cell)
             return "var", cell
         elif argt == ("int", "var"):
             cell = bf.malloc()
@@ -529,7 +529,7 @@ def eval_expression(expression, tokens, bf, params):
             if argv[0]:
                 bf.set(cell, 1)
             else:
-                bf.setVar(cell, argv[1])
+                bf.copy(argv[1], cell)
             return "var", cell
         elif argt == ("int", "int"):
             return "int", int(argv[0] and argv[1])
@@ -541,14 +541,14 @@ def eval_expression(expression, tokens, bf, params):
         elif argt == ("var", "int"):
             cell = bf.malloc()
             if argv[1]:
-                bf.setVar(cell, argv[0])
+                bf.copy(argv[0], cell)
             else:
                 bf.set(cell, 0)
             return "var", cell
         elif argt == ("int", "var"):
             cell = bf.malloc()
             if argv[0]:
-                bf.setVar(cell, argv[1])
+                bf.copy(argv[1], cell)
             else:
                 bf.set(cell, 0)
             return "var", cell

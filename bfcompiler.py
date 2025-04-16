@@ -614,13 +614,18 @@ class bf_compiler:
         self.free()
 
     def foreach(self, arr, do):
-        def start(param):
-            self.set(param, 0)
-        def cond(param):
-            return self.neq(param, self.length(arr))
-        def step(param):
-            self.inc(param)
-        self.for_(start, cond, step, do)
+        temp = self.malloc()
+        self.set(self.arrAccessCell(arr, 3), self.length(arr), reset=False)
+        self.algorithm("foreach", 0)
+        self.setRel(self.length(arr)-1)
+        self.algorithm("foreach", 1)
+        self.pointer = 2
+        self.move(self.arrAccessCell(arr, 1), temp)
+        memState = self.saveMemState()
+        do(param=temp)
+        self.loadMemState(memState)
+        self.goto(self.arrAccessCell(arr, 3))
+        self.algorithm("foreach", 2)
 
 
     # IO
@@ -695,32 +700,29 @@ class bf_compiler:
         return arr2
 
     def getIndex(self, arr, index):
-        result = self.malloc()
-        temp0, temp1, temp2, temp3 = list(range(min(self.get(arr)) - 4, min(self.get(arr))))
-        self.copy(index, temp1, reset=False)
-        self.goto(temp1)
+        self.copy(index, self.arrAccessCell(arr, 0), reset=False)
+        self.goto(self.arrAccessCell(arr, 0))
         self.algorithm("getIndex")
-        self.pointer = temp3
-        self.move(temp0, result)
+        self.pointer = self.arrAccessCell(arr, 2)
+        result = self.malloc()
+        self.move(self.arrAccessCell(arr, 1), result, reset=False)
         return result
 
     def setIndex(self, arr, index, value):
-        temp0, temp1, temp2, temp3 = list(range(self.index(arr, 0) - 4, self.index(arr, 0)))
-        self.copy(index, temp1, reset=False)
-        self.goto(temp1)
+        self.copy(index, self.arrAccessCell(arr, 0), reset=False)
+        self.goto(self.arrAccessCell(arr, 0))
         self.algorithm("setIndex", 0)
         self.setRel(value)
         self.algorithm("setIndex", 1)
-        self.pointer = temp2
+        self.pointer = self.arrAccessCell(arr, 1)
         return arr
 
     def setIndexVar(self, arr, index, data):
-        temp0, temp1, temp2, temp3 = list(range(self.index(arr, 0) - 4, self.index(arr, 0)))
-        self.copy(index, temp1, reset=False)
-        self.copy(data, temp3, reset=False)
-        self.goto(temp1)
+        self.copy(data, self.arrAccessCell(arr, 0), reset=False)
+        self.copy(index, self.arrAccessCell(arr, 1), reset=False)
+        self.goto(self.arrAccessCell(arr, 1))
         self.algorithm("setIndexVar")
-        self.pointer = temp2
+        self.pointer = self.arrAccessCell(arr, 2)
         return arr
 
 
@@ -761,6 +763,34 @@ class bf_compiler:
     def setBig(self, big, value, reset=True):
         remainder = value
         for i in range(self.length(big)):
-            print(self.index(big, i))
             self.set(self.index(big, i), remainder // 256 ** (self.length(big) - 1 - i), reset=reset)
             remainder = remainder % 256 ** (self.length(big) - 1 - i)
+
+    def moveBig(self, from_, to, reset=True):
+        if reset:
+            self.resetBig(to)
+        for i in range(self.length(from_)):
+            self.goto(self.index(from_, i))
+            self.code += "[-"
+            self.inc(self.index(to, i))
+            self.goto(self.index(from_, i))
+            self.code += "]"
+        return to
+
+    def copyBig(self, from_, to, reset=True, negate=False):
+        if reset:
+            self.resetBig(to)
+        temp = self.mallocBig(self.length(from_))
+        for i in range(self.length(from_)):
+            self.goto(self.index(from_, i))
+            self.code += "[-"
+            if negate:
+                self.dec(self.index(to, i))
+            else:
+                self.inc(self.index(to, i))
+            self.inc(self.index(temp, i))
+            self.goto(self.index(from_, i))
+            self.code += "]"
+            self.moveBig(temp, from_, reset=False)
+        self.free()
+        return to

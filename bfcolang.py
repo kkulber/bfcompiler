@@ -1,21 +1,6 @@
 from bfcompiler import *
 import sys
 
-unary = ["->", "~", "^", ".", ",", "!", "++", "--", "*!"]
-binary = ["[", "*", "/", "%", "+", "-", ">", "<", ">=", "<=", "==", "!=",
-         "&", "|", "=", "@=", "@", "@>", "?", "?*", "[*"]
-ternary = ["]=", ">@", "!?"]
-ternary_cut = {"]=": "[", ">@": "<", "!?": "?"}
-quaternary = [":"]
-operators  = unary + binary + ternary + quaternary
-
-op_presedence = ("->", "~", "^", "[", "]="), ("!", ".", ",", "++", "--"), \
-    ("*", "/", "%"), ("+", "-"), (">", "<", ">=", "<=", "==", "!="), \
-    ("&",), ("|",), ("=", "@=", "@", "@>", ">@"), ("?", "!?", "?*", "*!", "[*", ":")     
-
-types = ["int", "char", "arr", "str", "func"]
-valid_var = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_"
-
 DEBUG_OP_WORDS = {
         "->": "CALL", "~": "OP_STACK", "^": "LEN",
         ".": "OUT", ",": "IN", "!" : "NOT",
@@ -29,6 +14,22 @@ DEBUG_OP_WORDS = {
         "[*": "FOREACH", "]=": "INDEX_SET", ">@": "DEF_SIZED",
         "!?": "IFELSE", ":": "FOR"
     }
+
+
+unary = ["->", "~", "^", ".", ",", "!", "++", "--", "*!"]
+binary = ["[", "*", "/", "%", "+", "-", ">", "<", ">=", "<=", "==", "!=",
+         "&", "|", "=", "@=", "@", "@>", "?", "?*", "[*"]
+ternary = ["]=", ">@", "!?"]
+ternary_cut = {"]=": "[", ">@": "<", "!?": "?"}
+quaternary = [":"]
+operators  = unary + binary + ternary + quaternary
+
+op_presedence = ("->", "~", "^", "["), ("!", ".", ",", "++", "--"), \
+    ("*", "/", "%"), ("+", "-"), (">", "<", ">=", "<=", "==", "!="), \
+    ("&",), ("|",), ("=", "]=", "@=", "@", "@>", ">@"), ("?", "!?", "?*", "*!", "[*", ":")     
+
+types = ["int", "char", "arr", "str", "func"]
+valid_var = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_"
 
 def process_file(source):
     # Remove Spaces and comments
@@ -752,7 +753,7 @@ def eval_expression(expression, tokens, bf, params):
                 return "var", argv[0]
             elif get_type(argv[0]) == "arr":
                 def do(param):
-                    bf.printArr(bf.toArr(bf.getIndex(argv[0], param)))
+                    bf.printArr(bf.toArr(param))
                     bf.printStr(" ")
                 bf.foreach(argv[0], do)
                 return "var", argv[0]
@@ -797,9 +798,15 @@ def eval_expression(expression, tokens, bf, params):
                 return "var", arr
             elif get_type(argv[0]) == "arr":
                 arr = bf.mallocArr(bf.length(argv[0]))
+                def start(param):
+                    pass
+                def cond(param):
+                    return bf.ltl(param, bf.length(argv[0]))
+                def step(param):
+                    bf.inc(param)
                 def do(param):
                     bf.setIndexVar(arr, param, bf.toInt(bf.inputArr()))
-                bf.foreach(arr, do)
+                bf.for_(start, cond, step, do)
                 cells += ((arr, None, "arr"),)
                 return "var", arr
     elif op == "?":

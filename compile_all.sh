@@ -1,8 +1,9 @@
 #!/bin/bash
 
 for file in programs/*; do
-    echo "-------------------"
+    echo "---------------------------------------"
     echo "Compiling $file..."
     python3 bfcolang.py "$file"
 done
-echo "-------------------"
+echo "---------------------------------------"
+

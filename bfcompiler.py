@@ -121,11 +121,11 @@ class bf_compiler:
         return free
     
     def defBig(self, name, size, value=0):
-        free = (self.used_mem, size)
+        free = (self.used_mem + 2, size)
         self.vars[name] = free
-        self.used_mem += size
+        self.used_mem += size + 2
         if value != 0:
-            self.setBig(free, value)
+            self.setBig(free, value, reset=False)
         return free
 
     def malloc(self, num=1):
@@ -146,7 +146,7 @@ class bf_compiler:
             free = (-(self.used_temp + size), size)
         else:
             free = tuple((-(self.used_temp + size * i), size) for i in range(1, num + 1))
-        self.used_temp += num * size
+        self.used_temp += num * size + 2
         return free
 
     def arrAccessCell(self, arr, num):
@@ -167,7 +167,7 @@ class bf_compiler:
         if reset:
             for cell in range(-self.used_temp, -self.used_temp + num * size):
                 self.reset(cell)
-        self.used_temp -= num * size
+        self.used_temp -= num * size + 2
 
     def saveMemState(self):
         return self.used_temp
@@ -763,7 +763,8 @@ class bf_compiler:
     def setBig(self, big, value, reset=True):
         remainder = value
         for i in range(self.length(big)):
-            self.set(self.index(big, i), remainder // 256 ** (self.length(big) - 1 - i), reset=reset)
+            self.set(self.index(big, self.length(big) - i - 1), 
+                     remainder // 256 ** (self.length(big) - 1 - i), reset=reset)
             remainder = remainder % 256 ** (self.length(big) - 1 - i)
 
     def moveBig(self, from_, to, reset=True):
@@ -794,3 +795,36 @@ class bf_compiler:
             self.moveBig(temp, from_, reset=False)
         self.free()
         return to
+    
+    def incBig(self, big):
+        self.goto(self.index(big, 0))
+        for _ in range(self.length(big)-1):
+            self.algorithm("incBig", 0)
+        self.algorithm("incBig", 1)
+        for _ in range(self.length(big)-1):
+            self.algorithm("incBig", 2)
+        self.pointer = self.arrAccessCell(big, 0)
+        return big
+
+    def decBig(self, big):
+        self.goto(self.index(big, 0))
+        for _ in range(self.length(big)-1):
+            self.algorithm("decBig", 0)
+        self.algorithm("decBig", 1)
+        for _ in range(self.length(big)-1):
+            self.algorithm("decBig", 2)
+        self.pointer = self.arrAccessCell(big, 0)
+        return big
+    
+    def nonZeroBig(self, big):
+        result = self.malloc()
+        for i in range(self.length(big)):
+            self.move(self.index(big, i), self.arrAccessCell(big, 0), reset=False)
+            self.goto(self.arrAccessCell(big, 0))
+            self.code += "["
+            self.inc(self.arrAccessCell(big, 1))
+            self.inc(result)
+            self.move(self.arrAccessCell(big, 0), self.index(big, i), reset=False)
+            self.code += "]"
+        self.move(self.arrAccessCell(big, 1), result, reset=False)
+        return result

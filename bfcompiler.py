@@ -1,3 +1,8 @@
+from math import log
+
+ARRAY_ACCESS_CELL_COUNT = 4
+BIG_ACCESS_CELL_COUNT = 2
+
 class bf_compiler:
     def __init__(self):
         self.code = ""
@@ -70,12 +75,14 @@ class bf_compiler:
 
     # Variable Access
 
-    def get(self, var):
-        if type(var) != str:
-            return var
-        if var not in self.vars:
+    def get(self, obj):
+        if type(obj) == tuple and obj[1] == 1:
+            return obj[0]
+        if type(obj) != str:
+            return obj
+        if obj not in self.vars:
             return None
-        return self.vars[var]
+        return self.vars[obj]
     
     def get_name(self, var):
         try:
@@ -83,15 +90,21 @@ class bf_compiler:
         except:
             return None
 
-    def index(self, arr, index):
-        if type(arr) != str:
-            return arr[0] + index
-        return self.vars[arr][0] + index
+    def index(self, obj, index):
+        obj = self.get(obj)
+        if type(obj) == int:
+            return obj + index
+        return obj[0] + index
+
     
-    def length(self, arr):
-        if type(arr) != str:
-            return arr[1]
-        return self.vars[arr][1]
+    def length(self, obj):
+        obj = self.get(obj)
+        if type(obj) == int:
+            return 1
+        return obj[1]
+    
+    def bigReqLength(self, value):
+        return int(log(value, 256) + 1)
 
 
     # Memory Allocation
@@ -113,17 +126,19 @@ class bf_compiler:
             length = values
         else:
             length = len(values)
-        free = (self.used_mem + 4, length)
-        self.used_mem += length + 4
+        free = (self.used_mem + ARRAY_ACCESS_CELL_COUNT, length)
+        self.used_mem += length + ARRAY_ACCESS_CELL_COUNT
         self.vars[name] = free
         if type(values) != int:
             self.setArr(free, values, reset=False)
         return free
     
     def defBig(self, name, size, value=0):
-        free = (self.used_mem + 2, size)
+        if size == 1:
+            return self.def_(name, value)
+        free = (self.used_mem + BIG_ACCESS_CELL_COUNT, size)
         self.vars[name] = free
-        self.used_mem += size + 2
+        self.used_mem += size + BIG_ACCESS_CELL_COUNT
         if value != 0:
             self.setBig(free, value, reset=False)
         return free
@@ -138,15 +153,17 @@ class bf_compiler:
 
     def mallocArr(self, num):
         free = (-(self.used_temp + num), num)
-        self.used_temp += num + 4
+        self.used_temp += num + ARRAY_ACCESS_CELL_COUNT
         return free
     
     def mallocBig(self, size, num=1):
+        if size == 1:
+            return self.malloc(num)
         if num == 1:
             free = (-(self.used_temp + size), size)
         else:
             free = tuple((-(self.used_temp + size * i), size) for i in range(1, num + 1))
-        self.used_temp += num * size + 2
+        self.used_temp += num * size + BIG_ACCESS_CELL_COUNT
         return free
 
     def arrAccessCell(self, arr, num):
@@ -161,13 +178,16 @@ class bf_compiler:
     def freeArr(self, arr, reset=False):
         if reset:
             self.resetArr(arr)
-        self.used_temp -= arr[1] + 4
+        self.used_temp -= arr[1] + ARRAY_ACCESS_CELL_COUNT
 
     def freeBig(self, size, num=1, reset=False):
+        if size == 1:
+            self.free(num, reset=reset)
+            return
         if reset:
             for cell in range(-self.used_temp, -self.used_temp + num * size):
                 self.reset(cell)
-        self.used_temp -= num * size + 2
+        self.used_temp -= num * size + BIG_ACCESS_CELL_COUNT
 
     def saveMemState(self):
         return self.used_temp
@@ -179,8 +199,7 @@ class bf_compiler:
     # Cell Management
 
     def goto(self, cell):
-        if type(cell) == str:
-            cell = self.vars[cell]
+        cell = self.get(cell)
         diff = cell - self.pointer
         self.pointer = cell
         if diff > 0:
@@ -583,6 +602,15 @@ class bf_compiler:
         self.code += "]"
         self.free()
 
+    def managedWhile(self, cond, do):
+        self.goto(cond())
+        self.code += "["
+        self.free(reset=True)
+        do()
+        self.goto(cond())
+        self.code += "]"
+        self.free(reset=True)
+
     def for_(self, start, cond, step, do):
         cell, temp = self.malloc(2)
         start(param=cell)
@@ -793,10 +821,13 @@ class bf_compiler:
             self.goto(self.index(from_, i))
             self.code += "]"
             self.moveBig(temp, from_, reset=False)
-        self.free()
+        self.freeBig(self.length(from_))
         return to
     
     def incBig(self, big):
+        if self.length(big) == 1:
+            self.inc(big)
+            return big
         self.goto(self.index(big, 0))
         for _ in range(self.length(big)-1):
             self.algorithm("incBig", 0)
@@ -807,6 +838,9 @@ class bf_compiler:
         return big
 
     def decBig(self, big):
+        if self.length(big) == 1:
+            self.dec(big)
+            return big
         self.goto(self.index(big, 0))
         for _ in range(self.length(big)-1):
             self.algorithm("decBig", 0)
@@ -816,15 +850,97 @@ class bf_compiler:
         self.pointer = self.arrAccessCell(big, 0)
         return big
     
-    def nonZeroBig(self, big):
-        result = self.malloc()
-        for i in range(self.length(big)):
-            self.move(self.index(big, i), self.arrAccessCell(big, 0), reset=False)
-            self.goto(self.arrAccessCell(big, 0))
-            self.code += "["
-            self.inc(self.arrAccessCell(big, 1))
-            self.inc(result)
-            self.move(self.arrAccessCell(big, 0), self.index(big, i), reset=False)
-            self.code += "]"
-        self.move(self.arrAccessCell(big, 1), result, reset=False)
+
+    # Arithmetic
+
+    def addBigVar(self, big1, big2):
+        bigger = max(big1, big2, key=self.length)
+        smaller = big1 if bigger == big2 else big2
+        result = self.mallocBig(self.length(bigger))
+        self.malloc()
+        temp = self.mallocBig(self.length(smaller))
+        self.malloc()
+        self.copyBig(bigger, result, reset=False)
+        self.copyBig(smaller, temp, reset=False)
+        for i in range(self.length(temp)):
+            current_temp = (self.index(temp, i), self.length(temp) - i)
+            current_result = (self.index(result, i), self.length(result) - i)
+            def cond():
+                return self.neq(self.index(temp, i), 0)
+            def do():
+                self.decBig(current_temp)
+                self.incBig(current_result)
+            self.managedWhile(cond, do)
+            self.move(self.index(current_temp, 0), self.index(current_temp, -3), reset=False)
+            self.move(self.index(current_result, 0), self.index(current_result, -3), reset=False)
+        for i in range(self.length(temp)):
+            self.move(self.index(result, self.length(temp) - 4 - i), 
+                      self.index(result, self.length(temp) - 1 - i), reset=False)
+        self.freeBig(self.length(temp), reset=True)
+        self.free(2, reset=True)
         return result
+
+    def addBig(self, big, value):
+        if self.length(big) > self.bigReqLength(value):
+            result = self.mallocBig(self.length(big))
+            self.malloc()
+            temp = self.mallocBig(self.bigReqLength(value))
+            self.malloc()
+            self.copyBig(big, result, reset=False)
+            self.setBig(temp, value, reset=False)
+        else:
+            result = self.mallocBig(self.bigReqLength(value))
+            self.malloc()
+            temp = self.mallocBig(self.length(big))
+            self.malloc()
+            self.setBig(result, value, reset=False)
+            self.copyBig(big, temp, reset=False)
+        for i in range(self.length(temp)):
+            current_temp = (self.index(temp, i), self.length(temp) - i)
+            current_result = (self.index(result, i), self.length(result) - i)
+            def cond():
+                return self.neq(self.index(temp, i), 0)
+            def do():
+                self.decBig(current_temp)
+                self.incBig(current_result)
+            self.managedWhile(cond, do)
+            self.move(self.index(current_temp, 0), self.index(current_temp, -3), reset=False)
+            self.move(self.index(current_result, 0), self.index(current_result, -3), reset=False)
+        for i in range(self.length(temp)):
+            self.move(self.index(result, self.length(temp) - 4 - i), 
+                      self.index(result, self.length(temp) - 1 - i), reset=False)
+        self.freeBig(self.length(temp), reset=True)
+        self.free(2, reset=True)
+        return result
+    
+    def decBigVar(self, big1, big2):
+        result = self.mallocBig(self.length(big1))
+        self.malloc()
+        temp = self.mallocBig(self.length(big2))
+        self.malloc()
+        self.copyBig(big1, result, reset=False)
+        self.copyBig(big2, temp, reset=False)
+        for i in range(self.length(temp)):
+            current_temp = (self.index(temp, i), self.length(temp) - i)
+            current_result = (self.index(result, i), self.length(result) - i)
+            def cond():
+                return self.neq(self.index(temp, i), 0)
+            def do():
+                self.decBig(current_temp)
+                self.decBig(current_result)
+            self.managedWhile(cond, do)
+            self.move(self.index(current_temp, 0), self.index(current_temp, -3), reset=False)
+            self.move(self.index(current_result, 0), self.index(current_result, -3), reset=False)
+        for i in range(self.length(temp)):
+            self.move(self.index(result, self.length(temp) - 4 - i), 
+                      self.index(result, self.length(temp) - 1 - i), reset=False)
+        self.freeBig(self.length(temp), reset=True)
+        self.free(2, reset=True)
+        return result
+
+    # Temporary
+    def printBig(self, big):
+        for i in range(self.length(big)):
+            self.printArr(self.toArr(self.index(big, i)))
+            self.printStr(" ")
+            self.free(3, reset=True)

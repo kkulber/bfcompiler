@@ -628,14 +628,17 @@ def eval_expression(expression : Expression, tokens : Program, bf : bf_compiler,
         if argt == ("var", "var"):
             cell = bf.divModVar(argv[0], argv[1])
             cells += ((cell[0], None, "int"),)
+            bf.free(reset=True)
             return "var", cell[0]
         elif argt == ("var", "int"):
             cell = bf.divModl(argv[0], argv[1])
             cells += ((cell[0], None, "int"),)
+            bf.free(reset=True)
             return "var", cell[0]
         elif argt == ("int", "var"):
             cell = bf.divModr(argv[0], argv[1])
             cells += ((cell[0], None, "int"),)
+            bf.free(reset=True)
             return "var", cell[0]
         elif argt == ("int", "int"):
             return "int", argv[0] // argv[1] 
@@ -643,17 +646,23 @@ def eval_expression(expression : Expression, tokens : Program, bf : bf_compiler,
     # MOD
     elif op == "%":
         if argt == ("var", "var"):
-            cell = bf.divModVar(argv[0], argv[1])
-            cells += ((cell[1], None, "int"),)
-            return "var", cell[1]
+            cell = bf.malloc()
+            bf.move(bf.divModVar(argv[0], argv[1])[1], cell, reset=False)
+            cells += ((cell, None, "int"),)
+            bf.free(reset=True)
+            return "var", cell
         elif argt == ("var", "int"):
-            cell = bf.divModl(argv[0], argv[1])
-            cells += ((cell[1], None, "int"),)
-            return "var", cell[1]
+            cell = bf.malloc()
+            bf.move(bf.divModl(argv[0], argv[1])[1], cell, reset=False)
+            cells += ((cell, None, "int"),)
+            bf.free(reset=True)
+            return "var", cell
         elif argt == ("int", "var"):
-            cell = bf.divModr(argv[0], argv[1])
-            cells += ((cell[1], None, "int"),)
-            return "var", cell[1]
+            cell = bf.malloc()
+            bf.move(bf.divModr(argv[0], argv[1])[1], cell, reset=False)
+            cells += ((cell, None, "int"),)
+            bf.free(reset=True)
+            return "var", cell
         elif argt == ("int", "int"):
             return "int", argv[0] % argv[1]  
           

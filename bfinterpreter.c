@@ -3,9 +3,11 @@
 #include <string.h>
 
 #define TAPE_SIZE 30000
+#define DEBUG_CELL_RANGE 5
 
 unsigned char tape[TAPE_SIZE];
 int pointer;
+int count = 0;
 
 int main(int argc, char* argv[]){
 	if (argc < 2){
@@ -31,6 +33,9 @@ int main(int argc, char* argv[]){
 	fclose(file);
 
 	for (int i = 0; i < instrc-1; i++){
+		if (instrv[i] == '+' | instrv[i] == '-' | instrv[i] == '<' | 
+			instrv[i] == '>' | instrv[i] == '.' | instrv[i] == ',' | 
+			instrv[i] == '[' | instrv[i] == ']') count++;
 		switch(instrv[i]){
 			case '+':
 				tape[pointer]++;
@@ -84,8 +89,14 @@ int main(int argc, char* argv[]){
 	free(instrv);
 	printf("\n");
 	if (argc == 3){
-		printf("[DEBUG] Value at cell index %d: %d\n", atoi(argv[2]), tape[(int)(TAPE_SIZE / 2) + atoi(argv[2])]);
-		printf("[DEBUG] Pointer at cell index %d\n", pointer - (int)(TAPE_SIZE / 2));
-	}
+		printf("\n\n[DEBUG] Cells around Index %s\n", argv[2]);
+		for (int i = atoi(argv[2]) + TAPE_SIZE / 2 - DEBUG_CELL_RANGE;
+			 i <= atoi(argv[2]) + TAPE_SIZE / 2 + DEBUG_CELL_RANGE; i++){
+			printf("| %d ", tape[i]);
+		}
+		printf("|\n");
+		printf("[DEBUG] Amount of Instructions run: %d\n", count);
+		printf("[DEBUG] Pointer Position: %d\n", pointer - TAPE_SIZE / 2);
+	} 
 	return 1;
 }

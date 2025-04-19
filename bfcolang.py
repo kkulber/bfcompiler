@@ -1,20 +1,25 @@
 from bfcompiler import *
+from typing import List, Tuple, Any, Union
 import sys
 
+Token = Tuple[str, str, int]
+Expression = List[Union[Token, "Expression"]]
+Function = List[Expression]
+Program = List[Function]
+
 DEBUG_OP_WORDS = {
-        "->": "CALL", "~": "OP_STACK", "^": "LEN",
+        "->": "CALL", "~": "PARAM", "^": "LENGTH",
         ".": "OUT", ",": "IN", "!" : "NOT",
         "++": "INC", "--": "DEC", "*!": "FOREVER",
         "[": "GET_INDEX", "*": "MUL", "/": "DIV",
         "%": "MOD", "+": "ADD", "-": "SUB",
         ">": "GT", "<": "LT", ">=": "GTEQ", "<=": "LTEQ",
         "==": "EQ", "!=": "NEQ", "&": "AND", "|": "OR",
-        "=": "ASSIGN", "@=": "ALIAS", "@": "DEF",
+        "=": "ASSIGN", "@=": "ALIAS", "@": "DEFINE",
         "@>": "CAST", "?": "IF", "?*": "WHILE",
         "[*": "FOREACH", "]=": "INDEX_SET", ">@": "DEF_SIZED",
         "!?": "IFELSE", ":": "FOR"
     }
-
 
 unary = ["->", "~", "^", ".", ",", "!", "++", "--", "*!"]
 binary = ["[", "*", "/", "%", "+", "-", ">", "<", ">=", "<=", "==", "!=",
@@ -31,7 +36,7 @@ op_presedence = ("->", "~", "^", "["), ("!", ".", ",", "++", "--"), \
 types = ["int", "char", "arr", "str", "func"]
 valid_var = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_"
 
-def process_file(source):
+def pre_processor(source : str) -> List[List[str]]:
     # Remove Spaces and comments
     trimmed_source = ""
     i = -1
@@ -124,16 +129,10 @@ def process_file(source):
             i += 1
         expressions += [function_expressions]
     
-    # Split into tokens
-    tokens = []
-    for function in expressions:
-        function_tokens = []
-        for i in function:
-            function_tokens += [lexer(i)]
-        tokens += [function_tokens]
-    return tokens
+    return expressions
 
-def lexer(expression):
+
+def lexer(expression : str) -> Expression:
     tokens = []
     i = 0 
     while i < len(expression):
@@ -229,7 +228,7 @@ def lexer(expression):
         i += 1
     return tokens
 
-def AST(tokens):
+def AST(tokens : Expression) -> Expression:
     # Compute subexpressions
     i = 0
     while i < len(tokens):
@@ -281,17 +280,18 @@ def AST(tokens):
 cells = []
 var_func = {}
 aliases = {}
+
 DEBUG = False
 if len(sys.argv) == 3 and len(sys.argv[2]) > 0:
     DEBUG = True 
 
-def eval_function(function, tokens, bf, params=[]):
+def eval_function(function : Function, tokens : Program, bf : bf_compiler, params : Any = []) -> Token:
     return_token = None
     for e in function:
         return_token = eval_expression(e, tokens, bf, params)
     return return_token
 
-def eval_expression(expression, tokens, bf, params):
+def eval_expression(expression : Expression, tokens : Program, bf : bf_compiler, params : Any) -> Token:
     global cells
     def get_type(cell):
         result = None
@@ -344,8 +344,9 @@ def eval_expression(expression, tokens, bf, params):
     if DEBUG:
         bf.code += f"\n{DEBUG_OP_WORDS[op]} "
         bf.code += " ".join(argt)
-        bf.code += "\n"
+        bf.code += "!\n"
 
+    # DEFINE
     if op == "@":
         if argt == ("type", "var"):
             if argv[0] == "int" or argv[0] == "char":
@@ -358,11 +359,15 @@ def eval_expression(expression, tokens, bf, params):
             elif argv[0] == "func":
                 var_func[argv[1]] = None
                 return "var", argv[1]
+    
+    # DEFINE_SIZED
     elif op == ">@":
         if argt == ("type", "int", "var"):
             defined = bf.defArr(argv[2], argv[1])
             cells += ((defined, argv[2], argv[0]),)
             return "var", defined
+    
+    # CAST
     elif op == "@>":
         if argt == ("var", "type"):
             if get_type(argv[0]) == "int" and argv[1] == "char" or\
@@ -406,12 +411,18 @@ def eval_expression(expression, tokens, bf, params):
                         return "int", i
             elif argv[1] == "str":
                 return "str", str(get_func(argv[0]))
+            
+    # CALL
     elif op == "->":
         if argt == ("var",) or argt == ("int",) or argt == ("func",):
             return eval_function(get_func(argv[0]), tokens, bf)
+        
+    # PARAM
     elif op == "~":
         if argt == ("int",):
             return params[argv[0]]
+        
+    # ASSIGN
     elif op == "=":
         if argt == ("var", "var"):
             if get_type(argv[0]) in ("int", "char") and \
@@ -449,11 +460,15 @@ def eval_expression(expression, tokens, bf, params):
             if argv[0] in var_func:
                 var_func[argv[0]] = argv[1]
             return "func", argv[0]
+        
+    # LENGTH
     elif op == "^":
         if argt == ("var",):    
             return "int", bf.length(argv[0])
         elif argt == ("arr",) or argt == ("str",):
-            return "int", len(argv[0])    
+            return "int", len(argv[0])
+
+    # GET_INDEX    
     elif op == "[":
         if argt == ("var", "var"):
             cell = bf.getIndex(argv[0], argv[1])
@@ -462,23 +477,13 @@ def eval_expression(expression, tokens, bf, params):
             elif get_type(argv[0]) == "str":
                 cells += ((cell, None, "char"),)
             return "var", cell
-        elif argt == ("arr", "var"):
+        elif argt == ("arr", "var") or argt == ("str", "var"):
             cell = bf.malloc()
             temp = bf.mallocArr(len(argv[0]))
             bf.setArr(temp, argv[0])
             bf.move(bf.getIndex(temp, argv[1]), cell, reset=False)
-            bf.free(reset=True)
             bf.freeArr(argv[0], reset=True)
-            cells += ((cell, None, "int"),)
-            return "var", cell
-        elif argt == ("str", "var"):
-            cell = bf.malloc()
-            temp = bf.mallocArr(len(argv[0]))
-            bf.setArr(temp, argv[0])
-            bf.move(bf.getIndex(temp, argv[1]), cell, reset=False)
-            bf.free(reset=True)
-            bf.freeArr(argv[0], reset=True)
-            cells += ((cell, None, "char"),)
+            cells += ((cell, None, "int" if argt[1] == "arr" else "char"),)
             return "var", cell
         elif argt == ("var", "int"):
             cell = bf.index(argv[0], argv[1])
@@ -491,6 +496,8 @@ def eval_expression(expression, tokens, bf, params):
             return "int", argv[0][argv[1]]
         elif argt == ("str", "int"):
             return "char", argv[0][argv[1]]
+        
+    # SET_INDEX
     elif op == "]=":
         if argt == ("var", "var", "var"):
             bf.setIndexVar(argv[0], argv[1], argv[2])
@@ -504,13 +511,17 @@ def eval_expression(expression, tokens, bf, params):
         elif argt == ("var", "int", "int") or argt == ("var", "int", "char"):
             bf.set(bf.index(argv[0], argv[1]), argv[2])
             return "var", argv[0]
+        
+    # NOT
     elif op == "!":
         if argt == ("int",):
             return "int", int(not argv[0])
         elif argt == ("var",):
             cell = bf.not_(argv[0])
             cells += ((cell, None, "int"),)
-            return "var", cell    
+            return "var", cell
+        
+    # AND
     elif op == "&":
         if argt == ("var", "var"):
             cell = bf.and_(argv[0], argv[1])
@@ -534,6 +545,8 @@ def eval_expression(expression, tokens, bf, params):
             return "var", cell
         elif argt == ("int", "int"):
             return "int", int(argv[0] and argv[1])
+        
+    # OR
     elif op == "|":
         if argt == ("var", "var"):
             cell = bf.or_(argv[0], argv[1])
@@ -555,6 +568,8 @@ def eval_expression(expression, tokens, bf, params):
             return "var", cell
         elif argt == ("int", "int"):
             return int(argv[0] and argv[1])
+    
+    # ADD
     elif op == "+":
         if argt == ("var", "var"):
             if get_type(argv[0]) == "int" and get_type(argv[0]) == "int":
@@ -573,6 +588,8 @@ def eval_expression(expression, tokens, bf, params):
             return "int", argv[0] + argv[1]
         elif argt == ("arr", "arr"):
             return argt[0], argv[0] + argv[1]
+        
+    # SUB
     elif op == "-":
         if argt == ("var", "var"):
             cell = bf.subVar(argv[0], argv[1])
@@ -587,7 +604,9 @@ def eval_expression(expression, tokens, bf, params):
             cells += ((cell, None, "int"),)
             return "var", cell
         elif argt == ("int", "int"):
-            return "int", argv[0] - argv[1]        
+            return "int", argv[0] - argv[1]   
+
+    # MUL 
     elif op == "*":
         if argt == ("var", "var"):
             cell = bf.mulVar(argv[0], argv[1])
@@ -603,6 +622,8 @@ def eval_expression(expression, tokens, bf, params):
             return "var", cell
         elif argt == ("int", "int"):
             return "int", argv[0] * argv[1]    
+        
+    # DIV
     elif op == "/":
         if argt == ("var", "var"):
             cell = bf.divModVar(argv[0], argv[1])
@@ -617,7 +638,9 @@ def eval_expression(expression, tokens, bf, params):
             cells += ((cell[0], None, "int"),)
             return "var", cell[0]
         elif argt == ("int", "int"):
-            return "int", argv[0] // argv[1]    
+            return "int", argv[0] // argv[1] 
+           
+    # MOD
     elif op == "%":
         if argt == ("var", "var"):
             cell = bf.divModVar(argv[0], argv[1])
@@ -632,19 +655,25 @@ def eval_expression(expression, tokens, bf, params):
             cells += ((cell[1], None, "int"),)
             return "var", cell[1]
         elif argt == ("int", "int"):
-            return "int", argv[0] % argv[1]    
+            return "int", argv[0] % argv[1]  
+          
+    # INC
     elif op == "++":
         if argt == ("var",):
             bf.inc(argv[0])
             return "var", argv[0]    
         elif argt == ("int",):
-            return "int", argv[0] + 1;
+            return "int", argv[0] + 1
+    
+    # DEC
     elif op == "--":
         if argt == ("var",):
             bf.dec(argv[0])
             return "var", argv[0]    
         elif argt == ("int",):
-            return "int", argv[0] - 1;
+            return "int", argv[0] - 1
+        
+    # EQ
     elif op == "==":
         if argt == ("var", "var"):
             cell = bf.eqVar(argv[0], argv[1])
@@ -662,6 +691,8 @@ def eval_expression(expression, tokens, bf, params):
             return "var", cell
         elif argt == ("int", "int") or argt == ("char", "char"):
             return "int", int(argv[0] == argv[1])
+    
+    # NEQ
     elif op == "!=":
         if argt == ("var", "var"):
             cell = bf.neqVar(argv[0], argv[1])
@@ -679,6 +710,8 @@ def eval_expression(expression, tokens, bf, params):
             return "var", cell
         elif argt == ("int", "int") or argt == ("char", "char"):
             return "int", int(argv[0] != argv[1])
+        
+    # GT
     elif op == ">":
         if argt == ("var", "var"):
             cell = bf.gtVar(argv[0], argv[1])
@@ -694,6 +727,8 @@ def eval_expression(expression, tokens, bf, params):
             return "var", cell
         elif argt == ("int", "int"):
             return "int", int(argv[0] > argv[1])
+        
+    # GTEQ
     elif op == ">=":
         if argt == ("var", "var"):
             cell = bf.gtEqVar(argv[0], argv[1])
@@ -709,6 +744,8 @@ def eval_expression(expression, tokens, bf, params):
             return "var", cell
         elif argt == ("int", "int"):
             return "int", int(argv[0] >= argv[1])
+        
+    # LT
     elif op == "<":
         if argt == ("var", "var"):
             cell = bf.ltVar(argv[0], argv[1])
@@ -724,6 +761,8 @@ def eval_expression(expression, tokens, bf, params):
             return "var", cell
         elif argt == ("int", "int"):
             return "int", int(argv[0] < argv[1])
+        
+    # LTEQ
     elif op == "<=":
         if argt == ("var", "var"):
             cell = bf.ltEqVar(argv[0], argv[1])
@@ -739,6 +778,8 @@ def eval_expression(expression, tokens, bf, params):
             return "var", cell
         elif argt == ("int", "int"):
             return "int", int(argv[0] <= argv[1])
+        
+    # OUT
     elif op == ".":
         if argt == ("var",):
             if get_type(argv[0]) == "char":
@@ -769,6 +810,8 @@ def eval_expression(expression, tokens, bf, params):
         elif argt == ("func",):
             bf.printStr(f"func: {get_func(argv[0])}")
             return "func", argv[0]
+        
+    # IN
     elif op == ",":
         if argt == ("type",):
             if argv[0] == "char":
@@ -777,8 +820,9 @@ def eval_expression(expression, tokens, bf, params):
                 return "var", cell
             elif argv[0] == "int":
                 cell = bf.malloc()
-                bf.move(bf.toInt(bf.inputArr()), cell, reset=False)
-                bf.free(4, reset=True)
+                temp = bf.inputArr()
+                bf.move(bf.toInt(temp), cell, reset=False)
+                bf.freeArr(temp, reset=True)
                 cells += ((cell, None, "int"),)
                 return "var", cell
         elif argt == ("var",):
@@ -788,8 +832,9 @@ def eval_expression(expression, tokens, bf, params):
                 return "var", cell
             elif get_type(argv[0]) == "int":
                 cell = bf.malloc()
-                bf.move(bf.toInt(bf.inputArr()), cell, reset=False)
-                bf.free(4, reset=True)
+                temp = bf.inputArr()
+                bf.move(bf.toInt(temp), cell, reset=False)
+                bf.freeArr(temp, reset=True)
                 cells += ((cell, None, "int"),)
                 return "var", cell
             elif get_type(argv[0]) == "str":
@@ -809,12 +854,16 @@ def eval_expression(expression, tokens, bf, params):
                 bf.for_(start, cond, step, do)
                 cells += ((arr, None, "arr"),)
                 return "var", arr
+            
+    # IF
     elif op == "?":
         if argt == ("var", "func"):
             def do():
                 eval_function(get_func(argv[1]), tokens, bf, params=params)
             bf.if_(argv[0], do)
             return "var", argv[0]
+        
+    # IF_ELSE
     elif op == "!?":
         if argt == ("var", "func", "func"):
             def ifdo():
@@ -823,6 +872,8 @@ def eval_expression(expression, tokens, bf, params):
                 eval_function(get_func(argv[2]), tokens, bf, params=params)
             bf.ifelse(argv[0], ifdo, elsedo)
             return "var", argv[0]
+        
+    # WHILE
     elif op == "?*":
         if argt == ("func", "func"):
             def cond():
@@ -831,6 +882,8 @@ def eval_expression(expression, tokens, bf, params):
                 eval_function(get_func(argv[1]), tokens, bf, params=params)
             bf.while_(cond, do)
             return "int", 1
+    
+    # FOR
     elif op == ":":
         if argt == ("func", "func", "func", "func"):
             def start(param):
@@ -843,35 +896,36 @@ def eval_expression(expression, tokens, bf, params):
                 eval_function(get_func(argv[2]), tokens, bf, params=[("var", param)] + params)
             def do(param):            
                 eval_function(get_func(argv[3]), tokens, bf, params=[("var", param)] + params)
-            bf.for_(start, cond, step, do)    
+            bf.for_(start, cond, step, do)
             return "int", 1
+
+    # FOREVER
     elif op == "*!":
         if argt == ("func",):
             def do():
-                eval_function(get_func(argv[0]), tokens, bf, 
-                    params=params)
+                eval_function(get_func(argv[0]), tokens, bf, params=params)
             bf.forever(do)
             return "int", 1
+        
+    # FOREACH
     elif op == "[*":
         if argt == ("var", "func"):
             def do(param):
                 global cells
-                cells += ((param, None, "int"),)
+                cells += ((param, None, "int" if get_type(argv[0]) == "arr" else "char"),)
                 eval_function(get_func(argv[1]), tokens, bf, params=[("var", param)] + params)
             bf.foreach(argv[0], do)
             return "var", argv[0]
-        elif argt == ("arr", "func"):
-            memstate = bf.saveMemState()
-            for param in argv[0]:
-                eval_function(get_func(argv[1]), tokens, bf, params=[("int", param)] + params)
-                bf.loadMemState(memstate)
-            return "arr", argv[0]
-        elif argt == ("str", "func"):
-            memstate = bf.saveMemState()
-            for param in argv[0]:
-                eval_function(get_func(argv[1]), tokens, bf, params=[("char", param)] + params)
-                bf.loadMemState(memstate)
-            return "arr", argv[0]
+        elif argt == ("arr", "func") or argt == ("str", "func"):
+            arr = bf.mallocArr(len(argv[0]))
+            def do(param):
+                global cells
+                cells += ((param, None, "int" if argt[0] == "arr" else "char"),)
+                eval_function(get_func(argv[1]), tokens, bf, params=[("var", param)] + params)
+            bf.setArr(arr, argv[0], reset=False)
+            bf.foreach(arr, do)
+            bf.freeArr(arr, reset=True)
+            return "var", argv[0]
 
     # No return -> No evaluation happened
     try:
@@ -888,18 +942,24 @@ def eval_expression(expression, tokens, bf, params):
         
 def compile():
     with open(sys.argv[1]) as source:
-        tokens = process_file("".join(source.readlines()))
-    for f in range(len(tokens)):
-        for e in range(len(tokens[f])):
-            tokens[f][e] = AST(tokens[f][e])
+        expressions = pre_processor("".join(source.readlines()))
+
+    tokens = []
+    for function in expressions:
+        function_tokens = []
+        for expression in function:
+            function_tokens += [AST(lexer(expression))]
+        tokens += [function_tokens]
+
     bf = bf_compiler()
     result = eval_function(tokens[0], tokens, bf, params=[("str", sys.argv[1])])
+
     if DEBUG:
         print("[DEBUG] Return:", result, 
             "\n[DEBUG] Variable List:", cells, "\n[DEBUG] Alias List:", aliases,
             "\n[DEBUG] Function List:", var_func,
             "\n[DEBUG] Used mem:", bf.used_mem, "\n[DEBUG] Used temp mem:", bf.used_temp,
             "\n[DEBUG] Pointer position:", bf.pointer)
+        
     bf.result(sys.argv[1][sys.argv[1].find("/")+1:sys.argv[1].find(".")], trimmed=not DEBUG)
-
 compile()

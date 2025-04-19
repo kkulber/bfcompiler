@@ -20,15 +20,21 @@ int @ i;
 	code[i == ',' ? { ."\n>"; tape[pointer] = (,char); } !? {
 	code[i == '[' ? { 
 		!tape[pointer ? {
-			{ code[i != ']'; } ?* {
+			int @ count = 1;
+			{ count != 0; } ?* {
 				++i;
+				code[i == '[' ? { ++count; };
+				code[i == ']' ? { --count; };
 			};
 		};
 	} !? {
 	code[i == ']' ? {
 		tape[pointer ? {
-			{ code[i != '['; } ?* {
+			int @ count = 1;
+			{ count != 0; } ?* {
 				--i;
+				code[i == ']' ? { ++count; };
+				code[i == '[' ? { --count; };
 			};
 		};
 	};};};};};};};};};

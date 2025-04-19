@@ -7,7 +7,7 @@ char @ op = ,char;
 valid_ops @= "+-*/";
 int @ valid = 0;
 item @= ~0;
-valid_ops[* {
+valid_ops [* {
 	item == op ? {
 		valid = 1;
 	};

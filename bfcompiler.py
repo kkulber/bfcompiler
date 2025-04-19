@@ -140,7 +140,7 @@ class bf_compiler:
         self.used_mem += size + ARRAY_ACCESS_CELL_COUNT
         self.vars[name] = free
         if value != 0:
-            self.setBig(free, value, reset=False, mode="RIGHT")
+            self.setBig(free, value, reset=False, mode="LEFT")
         return free
 
     def malloc(self, num : int = 1) -> Tuple[Cell, ...]:
@@ -771,14 +771,29 @@ class bf_compiler:
         for i, op in enumerate([">", "<", ">", "<", ">", "<", ">"]):
             self.code += self.length(temp) * op
             self.algorithm("addBig", i+1)
-        self.setRel(self.length(temp), mode="RIGHT")
+        self.setRel(self.length(temp), mode="LEFT")
         self.algorithm("addBig", 8)
         self.pointer = self.arrAccessCell(result, 3)
         self.freeArr(temp, reset=False)
         return result
     
     def subBigVar(self, big1 : Big, big2 : Big) -> Big:
-        pass
+        length = max(self.length(big1), self.length(big2))
+        result = self.mallocArr(self.length(big1))
+        temp = self.mallocArr(length)
+        self.copyArr(big1, result, reset=False)
+        self.copyArr(big2, temp, reset=False)
+        self.set(self.arrAccessCell(temp, 0), self.length(temp), reset=False, mode="LEFT")
+        self.goto(self.arrAccessCell(temp, 0))
+        self.algorithm("subBig", 0)
+        for i, op in enumerate([">", "<", ">", "<", ">", "<", ">"]):
+            self.code += self.length(temp) * op
+            self.algorithm("subBig", i+1)
+        self.setRel(self.length(temp), mode="LEFT")
+        self.algorithm("subBig", 8)
+        self.pointer = self.arrAccessCell(result, 3)
+        self.freeArr(temp, reset=False)
+        return result
 
     # Temporary
     def printBig(self, big : Big):

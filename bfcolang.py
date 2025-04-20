@@ -427,7 +427,7 @@ def eval_expression(expression : Expression, tokens : Program, bf : bf_compiler,
         if argt == ("var", "var"):
             if get_type(argv[0]) in ("int", "char") and \
                     get_type(argv[1]) in ("int", "char"):
-                    bf.copy(argv[1], argv[0])
+                    bf.copy(argv[1], argv[0], to_mem=True)
                     return "var", argv[0]
             elif get_type(argv[0]) in ("arr", "str") and \
                     get_type(argv[1]) in ("arr", "str"):
@@ -439,7 +439,7 @@ def eval_expression(expression : Expression, tokens : Program, bf : bf_compiler,
                                     cell[2]),)
                                 cells.remove(cell)
                                 break
-                    bf.copyArr(argv[1], argv[0])
+                    bf.copyArr(argv[1], argv[0], to_mem=True)
                     return "var", argv[0]
         elif argt == ("var", "int") or argt == ("var", "char"):
             bf.set(argv[0], argv[1])
@@ -646,23 +646,23 @@ def eval_expression(expression : Expression, tokens : Program, bf : bf_compiler,
     # MOD
     elif op == "%":
         if argt == ("var", "var"):
-            cell = bf.malloc()
-            bf.move(bf.divModVar(argv[0], argv[1])[1], cell, reset=False)
-            cells += ((cell, None, "int"),)
-            bf.free(reset=True)
-            return "var", cell
+            result = bf.divModVar(argv[0], argv[1])
+            bf.move(result[1], result[0], reset=True)
+            cells += ((result[0], None, "int"),)
+            bf.free()
+            return "var", result[0]
         elif argt == ("var", "int"):
-            cell = bf.malloc()
-            bf.move(bf.divModl(argv[0], argv[1])[1], cell, reset=False)
-            cells += ((cell, None, "int"),)
-            bf.free(reset=True)
-            return "var", cell
+            result = bf.divModl(argv[0], argv[1])
+            bf.move(result[1], result[0], reset=True)
+            cells += ((result[0], None, "int"),)
+            bf.free()
+            return "var", result[0]
         elif argt == ("int", "var"):
-            cell = bf.malloc()
-            bf.move(bf.divModr(argv[0], argv[1])[1], cell, reset=False)
-            cells += ((cell, None, "int"),)
-            bf.free(reset=True)
-            return "var", cell
+            result = bf.divModr(argv[0], argv[1])
+            bf.move(result[1], result[0], reset=True)
+            cells += ((result[0], None, "int"),)
+            bf.free()
+            return "var", result[0]
         elif argt == ("int", "int"):
             return "int", argv[0] % argv[1]  
           
@@ -792,33 +792,32 @@ def eval_expression(expression : Expression, tokens : Program, bf : bf_compiler,
     elif op == ".":
         if argt == ("var",):
             if get_type(argv[0]) == "char":
-                bf.print(argv[0])
-                return "var", argv[0]
+                bf.print(argv[0], clean=True)
+                return "int", 1
             elif get_type(argv[0]) == "str":
-                bf.printArr(argv[0])
-                return "var", argv[0]
+                bf.printArr(argv[0], clean=True)
+                return "int", 1
             elif get_type(argv[0]) == "int":
-                bf.printArr(bf.toArr(argv[0]))
-                bf.free(3, reset=True)
-                return "var", argv[0]
+                bf.printArr(bf.toArr(argv[0]), clean=True)
+                return "int", 1
             elif get_type(argv[0]) == "arr":
                 def do(param):
-                    bf.printArr(bf.toArr(param))
+                    bf.printArr(bf.toArr(param), clean=True)
                     bf.printStr(" ")
                 bf.foreach(argv[0], do)
-                return "var", argv[0]
+                return "int", 1
         elif argt == ("str",) or argt == ("char",):
             bf.printStr(argv[0])
-            return argt[0], argv[0]
+            return "int", 1
         elif argt == ("int",):
             bf.printStr(str(argv[0]))
-            return "int", argv[0]
+            return "int", 1
         elif argt == ("arr",):
             bf.printStr(" ".join([str(i) for i in argv[0]]))
-            return "arr", argv[0]
+            return "int", 1
         elif argt == ("func",):
             bf.printStr(f"func: {get_func(argv[0])}")
-            return "func", argv[0]
+            return "int", 1
         
     # IN
     elif op == ",":
@@ -828,10 +827,7 @@ def eval_expression(expression : Expression, tokens : Program, bf : bf_compiler,
                 cells += ((cell, None, "char"),)
                 return "var", cell
             elif argv[0] == "int":
-                cell = bf.malloc()
-                temp = bf.inputArr()
-                bf.move(bf.toInt(temp), cell, reset=False)
-                bf.freeArr(temp, reset=True)
+                cell = bf.toInt(bf.inputArr())
                 cells += ((cell, None, "int"),)
                 return "var", cell
         elif argt == ("var",):
@@ -840,10 +836,7 @@ def eval_expression(expression : Expression, tokens : Program, bf : bf_compiler,
                 cells += ((cell, None, "char"),)
                 return "var", cell
             elif get_type(argv[0]) == "int":
-                cell = bf.malloc()
-                temp = bf.inputArr()
-                bf.move(bf.toInt(temp), cell, reset=False)
-                bf.freeArr(temp, reset=True)
+                cell = bf.toInt(bf.inputArr())
                 cells += ((cell, None, "int"),)
                 return "var", cell
             elif get_type(argv[0]) == "str":
@@ -933,7 +926,6 @@ def eval_expression(expression : Expression, tokens : Program, bf : bf_compiler,
                 eval_function(get_func(argv[1]), tokens, bf, params=[("var", param)] + params)
             bf.setArr(arr, argv[0], reset=False)
             bf.foreach(arr, do)
-            bf.freeArr(arr, reset=True)
             return "var", argv[0]
 
     # No return -> No evaluation happened

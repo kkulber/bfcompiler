@@ -20,6 +20,7 @@ class bf_compiler:
         self.vars = {}
         self.used_mem = 0
         self.used_temp = 0
+        self.reserved = []
 
     def result(self, filename : str, trimmed : bool = True) -> str:
         if trimmed:
@@ -97,13 +98,25 @@ class bf_compiler:
         if type(obj) == int:
             return obj + index
         return obj[0] + index
-
     
     def length(self, obj : Object) -> int:
         obj = self.get(obj)
         if type(obj) == int:
             return 1
         return obj[1]
+
+    def isTemp(self, obj : Object) -> bool:
+        obj = self.get(obj)
+        if type(obj) == int:
+            return obj < 0
+        return obj[0] < 0
+ 
+    def overlap(self, obj1 : Object, obj2 : Object) -> bool:
+        obj1 = self.get(obj1) if type(self.get(obj1)) == tuple else (self.get(obj1), 1)
+        obj2 = self.get(obj2) if type(self.get(obj2)) == tuple else (self.get(obj2), 1)
+        end1 = obj1[0] + obj1[1]
+        end2 = obj2[0] + obj2[1] 
+        return obj1[0] < end2 and obj2[0] < end1
     
     def bigReqLength(self, value : int) -> int:
         if value == 0:
@@ -153,19 +166,60 @@ class bf_compiler:
         self.used_temp += num
         return free
 
-    def mallocMap(self, map : Iterable[Union[Cell, None]]) -> Tuple[Union[Cell, None]]:
+    def memMove(self, obj1 : Object, obj2 : Object, negate : bool = False):
+        if type(self.get(obj1)) == int:
+            if self.get(obj1) < 0 and obj1 not in self.reserved:
+                self.move(obj1, obj2, reset=False, negate=negate)
+            else:
+                self.copy(obj1, obj2, reset=False, negate=negate)
+        elif type(self.get(obj1)) == tuple and not negate and obj1 not in self.reserved:
+            if self.get(obj1)[0] < 0:
+                self.moveArr(obj1, obj2, reset=False)
+            else:
+                self.copyArr(obj1, obj2, reset=False)
+
+    def mallocMap(self, map : Tuple[Union[Object, None, Tuple[None]], ...], 
+            additional_cells : Tuple[Object, ...] = tuple()) -> Tuple[Union[Object, None]]:
         freed = []
-        for cell in map:
-            if cell != None and self.get(cell) < 0 and cell not in freed:
+        for obj in additional_cells + map[::-1]:
+            if obj == None or (type(obj) == tuple and tuple[0] == None):
+                continue
+            if obj in self.reserved:
+                break
+            if type(self.get(obj)) == int and self.get(obj) < 0 and obj not in freed: 
                 self.free()
-                freed += [cell]
-        temp = self.malloc(len(map))
-        for i, cell in enumerate(map):
-            if cell != None:
-                if self.get(cell) < 0:
-                    self.move(cell, temp[i], reset=False)
-                else:
-                    self.copy(cell, temp[i], reset=False)
+                freed += [obj]
+            elif type(self.get(obj)) == tuple and self.get(obj)[0] < 0 and obj not in freed:
+                self.freeArr(obj)
+                freed += [obj]
+
+        temp = []
+        for obj in map:
+            if obj == None or type(self.get(obj)) == int:
+                temp += [self.malloc()]
+            elif type(self.get(obj)) == tuple:
+                temp += [self.mallocArr(self.length(obj))]
+
+        tasks = [obj for obj in map if obj != None and obj != (None,)]
+        while tasks:
+            for i, obj in enumerate(map):
+                if obj == None or (type(obj) == tuple and tuple[0] == None):
+                    continue
+                if obj == temp[i]:
+                    if obj in tasks:
+                        tasks.remove(obj)
+                    continue
+                free = True
+                for task in tasks:
+                    if self.overlap(task, temp[i]):
+                        free = False
+                        break
+                if free and obj in tasks:
+                    self.memMove(obj, temp[i])
+                    tasks.remove(obj)
+        
+        if len(temp) == 1:
+            return temp[0]
         return temp
 
     def mallocArr(self, len_ : int) -> Multi_Cell:
@@ -234,16 +288,23 @@ class bf_compiler:
             value = ord(value)
         self.algorithm("setLeft" if mode == "LEFT" else "setRight", value)
 
-    def move(self, from_ : Cell, to : Cell, reset : bool = True):
-        if reset:
+    def move(self, from_ : Cell, to : Cell, reset : bool = True, negate : bool = False):
+        if reset: 
             self.reset(to)
         self.goto(from_)
         self.code += "[-"
-        self.inc(to)
+        if negate:
+            self.dec(to)
+        else:
+            self.inc(to)
         self.goto(from_)
         self.code += "]"
 
-    def copy(self, from_ : Cell, to : Cell, reset : bool = True, negate : bool = False):
+    def copy(self, from_ : Cell, to : Cell, reset : bool = True, negate : bool = False, to_mem : bool = False):
+        if to_mem and self.isTemp(from_):
+            self.move(from_, to, reset=reset, negate=negate)
+            self.free()
+            return
         if reset:
             self.reset(to)
         temp = self.malloc()
@@ -259,45 +320,42 @@ class bf_compiler:
         self.move(temp, from_, reset=False)
         self.free()
 
-    def inc(self, cell : Cell, value : int = 1):
+    def inc(self, cell : Cell, value : int = 1, mode : Set_Mode = "NORMAL"):
         self.goto(cell)
-        self.code += value * "+"
+        self.setRel(value, mode=mode)
 
-    def dec(self, cell : Cell, value : int = 1):
+    def dec(self, cell : Cell, value : int = 1, mode : Set_Mode = "NORMAL"):
         self.goto(cell)
-        self.code += value * "-"
+        self.setRel(-value, mode=mode)
 
 
     # Arithmetic
 
     def addVar(self, cell1 : Cell, cell2 : Cell) -> Cell:
-        result = self.malloc()
-        self.copy(cell1, result, reset=False)
-        self.copy(cell2, result, reset=False)
+        result = self.mallocMap((cell1,), additional_cells=(cell2,))
+        self.memMove(cell2, result)
         return result
 
     def add(self, cell : Cell, value : int) -> Cell:
-        result = self.malloc()
-        self.copy(cell, result, reset=False)
+        result = self.mallocMap((cell,))
         self.inc(result, value)
         return result
 
     def subVar(self, cell1 : Cell, cell2 : Cell) -> Cell:
-        result = self.malloc()
-        self.copy(cell1, result, reset=False)
-        self.copy(cell2, result, reset=False, negate=True)
+        result = self.mallocMap((cell1,), additional_cells=(cell2,))
+        self.memMove(cell2, result, negate=True)
         return result
 
     def subl(self, cell : Cell, value : int) -> Cell:
-        result = self.malloc()
-        self.copy(cell, result, reset=False)
-        self.dec(result, value)
+        result, temp = self.mallocMap((cell, None))
+        self.dec(result, value, mode="LEFT")
+        self.free()
         return result
 
     def subr(self, value : int, cell : Cell) -> Cell:
-        result = self.malloc(2)
+        result, temp = self.mallocMap((None, None))
         self.set(result, value, reset=False, mode="LEFT")
-        self.copy(cell, result, reset=False, negate=True)
+        self.memMove(cell, result, negate=True)
         self.free()
         return result
     
@@ -319,9 +377,7 @@ class bf_compiler:
         return result
 
     def divModVar(self, cell1 : Cell, cell2 : Cell) -> Tuple[Cell, Cell]:
-        quotient, remainder, temp0, temp1, temp2, temp3 = self.malloc(6)
-        self.copy(cell1, temp3, reset=False)
-        self.copy(cell2, temp2, reset=False)
+        quotient, remainder, temp0, temp1, temp2, temp3 = self.mallocMap((None, None, None, None, cell2, cell1))
         self.goto(temp1)
         self.algorithm("divMod")
         self.pointer = temp0
@@ -329,8 +385,7 @@ class bf_compiler:
         return quotient, remainder
 
     def divModl(self, cell : Cell, value : int) -> Tuple[Cell, Cell]:
-        quotient, remainder, temp0, temp1, temp2, temp3 = self.malloc(6)
-        self.copy(cell, temp3, reset=False)
+        quotient, remainder, temp0, temp1, temp2, temp3 = self.mallocMap((None, None, None, None, None, cell))
         self.set(temp2, value, reset=False, mode="RIGHT")
         self.goto(temp1)
         self.algorithm("divMod")
@@ -339,9 +394,8 @@ class bf_compiler:
         return quotient, remainder
     
     def divModr(self, value : int, cell : Cell) -> Tuple[Cell, Cell]:
-        quotient, remainder, temp0, temp1, temp2, temp3 = self.malloc(6)
+        quotient, remainder, temp0, temp1, temp2, temp3 = self.mallocMap((None, None, None, None, cell, None))
         self.set(temp3, value, reset=False, mode="RIGHT")
-        self.copy(cell, temp2, reset=False)
         self.goto(temp1)
         self.algorithm("divMod")
         self.pointer = temp0
@@ -352,17 +406,14 @@ class bf_compiler:
     # Logic
 
     def not_(self, cell : Cell) -> Cell:
-        result, temp = self.malloc(2)
-        self.copy(cell, result, reset=False)
+        result, temp = self.mallocMap((cell, None))
         self.goto(temp)
         self.algorithm("not")
         self.free()
         return result
 
     def and_(self, cell1 : Cell, cell2 : Cell) -> Cell:
-        result, temp1, temp2 = self.malloc(3)
-        self.copy(cell1, temp1)
-        self.copy(cell2, temp2)
+        result, temp1, temp2 = self.mallocMap((None, cell1, cell2))
         self.goto(temp1)
         self.algorithm("and")
         self.pointer = temp2
@@ -370,9 +421,7 @@ class bf_compiler:
         return result
 
     def or_(self, cell1 : Cell, cell2 : Cell) -> Cell:
-        result, temp1, temp2 = self.malloc(3)
-        self.copy(cell1, temp1)
-        self.copy(cell2, temp2)
+        result, temp1, temp2 = self.mallocMap((None, cell1, cell2))
         self.goto(temp1)
         self.algorithm("or")
         self.pointer = temp2
@@ -383,9 +432,7 @@ class bf_compiler:
     # Comparison
 
     def eqVar(self, cell1 : Cell, cell2 : Cell) -> Cell:
-        result, temp = self.malloc(2)
-        self.copy(cell1, result)
-        self.copy(cell2, temp)
+        result, temp = self.mallocMap((cell1, cell2))
         self.goto(result)
         self.algorithm("eqVar")
         self.pointer = temp
@@ -395,18 +442,15 @@ class bf_compiler:
     def eq(self, cell : Cell, value) -> Cell:
         if type(value) == str:
             value = ord(value)
-        result, temp = self.malloc(2)
-        self.copy(cell, temp, reset=False)
-        self.dec(temp, value)
+        result, temp = self.mallocMap((None, cell))
+        self.dec(temp, value, mode="RIGHT")
         self.goto(temp)
         self.algorithm("eq")
         self.free()
         return result
 
     def neqVar(self, cell1 : Cell, cell2 : Cell) -> Cell:
-        result, temp1, temp2 = self.malloc(3)
-        self.copy(cell1, temp1, reset=False)
-        self.copy(cell2, temp2, reset=False)
+        result, temp1, temp2 = self.mallocMap((None, cell1, cell2))
         self.goto(temp1)
         self.algorithm("neqVar")
         self.pointer = temp2
@@ -416,62 +460,53 @@ class bf_compiler:
     def neq(self, cell : Cell, value : int) -> Cell:
         if type(value) == str:
             value = ord(value)
-        result, temp = self.malloc(2)
-        self.copy(cell, temp, reset=False)
-        self.dec(temp, value)
+        result, temp = self.mallocMap((None, cell))
+        self.dec(temp, value, mode="RIGHT")
         self.goto(temp)
         self.algorithm("neq")
         self.free()
         return result
 
+    def gtVar(self, cell1 : Cell, cell2 : Cell) -> Cell:
+        result, temp1, temp2, temp3, temp4, temp5 = self.mallocMap((None, cell2, cell1, None, None, None))
+        self.goto(temp3)
+        self.algorithm("gt")
+        self.free(5)
+        return result
+
     def gtl(self, cell : Cell, value : int) -> Cell:
-        result, temp1, temp2, temp3, temp4, temp5 = self.malloc(6)
+        result, temp1, temp2, temp3, temp4, temp5 = self.mallocMap((None, None, cell, None, None, None))
         self.set(temp1, value, reset=False, mode="RIGHT")
-        self.copy(cell, temp2, reset=False)
         self.goto(temp3)
         self.algorithm("gt")
         self.free(5)
         return result
 
     def gtr(self, value, cell : Cell) -> Cell:
-        result, temp1, temp2, temp3, temp4, temp5 = self.malloc(6)
-        self.copy(cell, temp1, reset=False)
+        result, temp1, temp2, temp3, temp4, temp5 = self.mallocMap((None, cell, None, None, None, None))
         self.set(temp2, value, reset=False, mode="LEFT")
-        self.goto(temp3)
-        self.algorithm("gt")
-        self.free(5)
-        return result
-
-    def gtVar(self, cell1 : Cell, cell2 : Cell) -> Cell:
-        result, temp1, temp2, temp3, temp4, temp5 = self.malloc(6)
-        self.copy(cell2, temp1, reset=False)
-        self.copy(cell1, temp2, reset=False)
         self.goto(temp3)
         self.algorithm("gt")
         self.free(5)
         return result
     
     def ltVar(self, cell1 : Cell, cell2 : Cell) -> Cell:
-        result, temp1, temp2, temp3, temp4, temp5 = self.malloc(6)
-        self.copy(cell2, temp1, reset=False)
-        self.copy(cell1, temp2, reset=False)
+        result, temp1, temp2, temp3, temp4, temp5 = self.mallocMap((None, cell2, cell1, None, None, None))
         self.goto(temp3)
         self.algorithm("lt")
         self.free(5)
         return result
 
     def ltl(self, cell : Cell, value : int) -> Cell:
-        result, temp1, temp2, temp3, temp4, temp5 = self.malloc(6)
+        result, temp1, temp2, temp3, temp4, temp5 = self.mallocMap((None, None, cell, None, None, None))
         self.set(temp1, value, reset=False, mode="RIGHT")
-        self.copy(cell, temp2, reset=False)
         self.goto(temp3)
         self.algorithm("lt")
         self.free(5)
         return result
 
-    def ltr(self, value : int, cell : Cell) -> Cell:
-        result, temp1, temp2, temp3, temp4, temp5 = self.malloc(6)
-        self.copy(cell, temp1, reset=False)
+    def ltr(self, value, cell : Cell) -> Cell:
+        result, temp1, temp2, temp3, temp4, temp5 = self.mallocMap((None, cell, None, None, None, None))
         self.set(temp2, value, reset=False, mode="LEFT")
         self.goto(temp3)
         self.algorithm("lt")
@@ -479,65 +514,56 @@ class bf_compiler:
         return result
 
     def gtEqVar(self, cell1 : Cell, cell2 : Cell) -> Cell:
-        result, temp1, temp2, temp3, temp4, temp5 = self.malloc(6)
-        self.copy(cell2, temp1, reset=False)
-        self.copy(cell1, temp2, reset=False)
+        result, temp1, temp2, temp3, temp4, temp5 = self.mallocMap((None, cell2, cell1, None, None, None))
         self.goto(temp3)
         self.algorithm("gtEq")
         self.free(5)
         return result
 
     def gtEql(self, cell : Cell, value : int) -> Cell:
-        result, temp1, temp2, temp3, temp4, temp5 = self.malloc(6)
+        result, temp1, temp2, temp3, temp4, temp5 = self.mallocMap((None, None, cell, None, None, None))
         self.set(temp1, value, reset=False, mode="RIGHT")
-        self.copy(cell, temp2, reset=False)
         self.goto(temp3)
         self.algorithm("gtEq")
         self.free(5)
         return result
 
-    def gtEqr(self, value : int, cell : Cell) -> Cell:
-        result, temp1, temp2, temp3, temp4, temp5 = self.malloc(6)
-        self.copy(cell, temp1, reset=False)
+    def gtEqr(self, value, cell : Cell) -> Cell:
+        result, temp1, temp2, temp3, temp4, temp5 = self.mallocMap((None, cell, None, None, None, None))
         self.set(temp2, value, reset=False, mode="LEFT")
         self.goto(temp3)
         self.algorithm("gtEq")
         self.free(5)
-        return result 
+        return result
     
     def ltEqVar(self, cell1 : Cell, cell2 : Cell) -> Cell:
-        result, temp1, temp2, temp3, temp4, temp5 = self.malloc(6)
-        self.copy(cell2, temp1, reset=False)
-        self.copy(cell1, temp2, reset=False)
+        result, temp1, temp2, temp3, temp4, temp5 = self.mallocMap((None, cell2, cell1, None, None, None))
         self.goto(temp3)
         self.algorithm("ltEq")
         self.free(5)
         return result
 
     def ltEql(self, cell : Cell, value : int) -> Cell:
-        result, temp1, temp2, temp3, temp4, temp5 = self.malloc(6)
+        result, temp1, temp2, temp3, temp4, temp5 = self.mallocMap((None, None, cell, None, None, None))
         self.set(temp1, value, reset=False, mode="RIGHT")
-        self.copy(cell, temp2, reset=False)
         self.goto(temp3)
         self.algorithm("ltEq")
         self.free(5)
         return result
 
-    def ltEqr(self, value : int, cell : Cell) -> Cell:
-        result, temp1, temp2, temp3, temp4, temp5 = self.malloc(6)
-        self.copy(cell, temp1, reset=False)
+    def ltEqr(self, value, cell : Cell) -> Cell:
+        result, temp1, temp2, temp3, temp4, temp5 = self.mallocMap((None, cell, None, None, None, None))
         self.set(temp2, value, reset=False, mode="LEFT")
         self.goto(temp3)
         self.algorithm("ltEq")
         self.free(5)
-        return result 
+        return result
 
 
     # Control Flow
 
     def if_(self, cell : Cell, do : Callable[[], None]):
-        temp = self.malloc()
-        self.copy(cell, temp, reset=False)
+        temp = self.mallocMap((cell,))
         self.goto(temp)
         self.code += "["
         memState = self.saveMemState()
@@ -548,8 +574,7 @@ class bf_compiler:
         self.free()
 
     def ifelse(self, cell : Cell, ifDo : Callable[[], None], elseDo : Callable[[], None]):
-        temp1, temp2 = self.malloc(2)
-        self.copy(cell, temp1, reset=False)
+        temp1, temp2 = self.mallocMap((cell, None))
         self.inc(temp2)
         self.goto(temp1)
         self.code += "["
@@ -586,6 +611,7 @@ class bf_compiler:
     def for_(self, start : Callable[[Cell], None], cond : Callable[[Cell], None], 
              step : Callable[[Cell], None], do : Callable[[Cell], None]):
         cell, temp = self.malloc(2)
+        self.reserved += [cell]
         start(param=cell)
         memState = self.saveMemState()
         self.copy(cond(param=cell), temp)
@@ -600,6 +626,7 @@ class bf_compiler:
         self.goto(temp)
         self.code += "]"
         self.free()
+        self.reserved.remove(cell)
         self.free(reset=True)
 
     def forever(self, do : Callable[[], None]):
@@ -616,26 +643,36 @@ class bf_compiler:
 
     def foreach(self, arr : Multi_Cell, do : Callable[[Cell], None]):
         temp = self.malloc()
+        self.reserved += [temp]
         self.set(self.arrAccessCell(arr, 3), self.length(arr), reset=False, mode="RIGHT")
         self.goto(self.arrAccessCell(arr, 3))
         self.algorithm("foreach", 0)
         self.setRel(self.length(arr)-1, mode="LEFT")
         self.algorithm("foreach", 1)
         self.pointer = self.arrAccessCell(arr, 1)
-        self.code += "WAKE UP"
         self.move(self.arrAccessCell(arr, 1), temp)
         memState = self.saveMemState()
         do(param=temp)
         self.loadMemState(memState)
         self.goto(self.arrAccessCell(arr, 3))
         self.algorithm("foreach", 2)
-
+        self.reserved.remove(temp)
+        self.free()
 
     # IO
 
-    def print(self, cell : Char):
+    def print(self, cell : Char, clean : bool = False):
         self.goto(cell)
         self.code += "."
+        if clean and self.isTemp(cell) and cell not in self.reserved:
+            self.free(reset=True)
+
+    def printArr(self, string : String, clean : bool = False):
+        self.goto(self.index(string, 0))
+        self.algorithm("printArr")
+        self.pointer = self.arrAccessCell(string, 0)
+        if clean and self.isTemp(string) and string not in self.reserved:
+            self.freeArr(string, reset=True) 
 
     def printStr(self, string : str):
         temp1, temp2 = self.malloc(2)
@@ -648,11 +685,6 @@ class bf_compiler:
             self.print(temp1)
         self.free()
         self.free(reset=True)
-
-    def printArr(self, string : String):
-        self.goto(self.index(string, 0))
-        self.algorithm("printArr")
-        self.pointer = self.arrAccessCell(string, 0)
 
     def input(self) -> Char:
         result, newline = self.malloc(2)
@@ -689,7 +721,23 @@ class bf_compiler:
         for i, value in enumerate(values):
             self.set(self.index(arr, i), value, reset=reset, mode=mode)
 
-    def copyArr(self, arr1 : Multi_Cell, arr2 : Multi_Cell, reset : bool = True):
+    def moveArr(self, arr1: Multi_Cell, arr2 : Multi_Cell, reset : bool = True):
+        if reset:
+            self.resetArr(arr2)
+        self.set(self.arrAccessCell(arr1, 0), self.length(arr1), mode="LEFT")
+        self.goto(self.arrAccessCell(arr1, 0))
+        self.algorithm("moveArr", 0)
+        self.gotoRel(self.index(arr2, 0) - self.index(arr1, 0) + 3)
+        self.algorithm("moveArr", 1)
+        self.gotoRel(-(self.index(arr2, 0) - self.index(arr1, 0) + 3))
+        self.algorithm("moveArr", 2)
+        self.pointer = self.index(arr1, self.length(arr1) - 1)
+
+    def copyArr(self, arr1 : Multi_Cell, arr2 : Multi_Cell, reset : bool = True, to_mem : bool = False):
+        if to_mem and self.isTemp(arr1):
+            self.moveArr(arr1, arr2, reset=reset)
+            self.freeArr(arr1)
+            return
         if reset:
             self.resetArr(arr2)
         self.set(self.arrAccessCell(arr1, 0), self.length(arr1), mode="LEFT")
@@ -703,7 +751,7 @@ class bf_compiler:
         self.pointer = self.arrAccessCell(arr1, 1)
 
     def getIndex(self, arr : Multi_Cell, index : Cell) -> Cell:
-        self.copy(index, self.arrAccessCell(arr, 0), reset=False)
+        self.memMove(index, self.arrAccessCell(arr, 0))
         self.goto(self.arrAccessCell(arr, 0))
         self.algorithm("getIndex")
         self.pointer = self.arrAccessCell(arr, 2)
@@ -712,7 +760,7 @@ class bf_compiler:
         return result
 
     def setIndex(self, arr : Multi_Cell, index : Cell, value : Union[int, str]):
-        self.copy(index, self.arrAccessCell(arr, 0), reset=False)
+        self.memMove(index, self.arrAccessCell(arr, 0))
         self.goto(self.arrAccessCell(arr, 0))
         self.algorithm("setIndex", 0)
         self.setRel(value, mode="LEFT")
@@ -720,8 +768,8 @@ class bf_compiler:
         self.pointer = self.arrAccessCell(arr, 1)
 
     def setIndexVar(self, arr : Multi_Cell, index : Cell, data : Cell):
-        self.copy(data, self.arrAccessCell(arr, 0), reset=False)
-        self.copy(index, self.arrAccessCell(arr, 1), reset=False)
+        self.memMove(data, self.arrAccessCell(arr, 0))
+        self.memMove(index, self.arrAccessCell(arr, 1))
         self.goto(self.arrAccessCell(arr, 1))
         self.algorithm("setIndexVar")
         self.pointer = self.arrAccessCell(arr, 2)
@@ -730,8 +778,7 @@ class bf_compiler:
     # Datatype Conversion
 
     def toInt(self, arr : String) -> Int:
-        temp = self.mallocArr(4)
-        self.copyArr(arr, temp, reset=False)
+        temp = self.mallocMap((arr,))
         self.goto(self.index(temp, 0))
         self.algorithm("toInt")
         self.freeArr(temp)
@@ -740,7 +787,7 @@ class bf_compiler:
 
     def toArr(self, cell : Int) -> String:
         result = self.mallocArr(4)
-        self.copy(cell, self.arrAccessCell(result, 3), reset=False)
+        self.memMove(cell, self.arrAccessCell(result, 3))
         self.goto(self.arrAccessCell(result, 2))
         self.algorithm("toArr")
         self.pointer = self.index(result, 0)

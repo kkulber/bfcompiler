@@ -232,8 +232,11 @@ class bf_compiler:
 
     def free(self, num : int = 1, reset : bool = False):
         if reset:
-            for cell in range(-self.used_temp, -self.used_temp + num):
-                self.reset(cell)
+            if num <= 4:
+                for cell in range(-self.used_temp, -self.used_temp + num):
+                    self.reset(cell)
+            else:
+                self.resetArr((-self.used_temp, num))
         self.used_temp -= num
 
     def freeArr(self, arr : Multi_Cell, reset : bool = False):
@@ -300,8 +303,8 @@ class bf_compiler:
         self.goto(from_)
         self.code += "]"
 
-    def copy(self, from_ : Cell, to : Cell, reset : bool = True, negate : bool = False, to_mem : bool = False):
-        if to_mem and self.isTemp(from_):
+    def copy(self, from_ : Cell, to : Cell, reset : bool = True, negate : bool = False, assign : bool = False):
+        if assign and self.isTemp(from_):
             self.move(from_, to, reset=reset, negate=negate)
             self.free()
             return
@@ -733,8 +736,8 @@ class bf_compiler:
         self.algorithm("moveArr", 2)
         self.pointer = self.index(arr1, self.length(arr1) - 1)
 
-    def copyArr(self, arr1 : Multi_Cell, arr2 : Multi_Cell, reset : bool = True, to_mem : bool = False):
-        if to_mem and self.isTemp(arr1):
+    def copyArr(self, arr1 : Multi_Cell, arr2 : Multi_Cell, reset : bool = True, assign : bool = False):
+        if assign and self.isTemp(arr1):
             self.moveArr(arr1, arr2, reset=reset)
             self.freeArr(arr1)
             return

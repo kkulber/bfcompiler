@@ -1,5 +1,4 @@
 # Take operator input #
-."(Bitte beachten, dass zurzeit nur mit Zahlen zwischen 0 und 255 gerechnet werden kann)\n";
 ."Welche Rechnung möchten sie ausführen? (+, -, *, /) ";
 char @ op = ,char;
 
@@ -41,7 +40,7 @@ valid_ops [* {
 	.op; ." "; 
 	.b; ." = ";
 	.(result[0);
-	op == '/' ? {
+	result[1 != 0 ? {
 		." R "; .(result[1);
 	};
 };

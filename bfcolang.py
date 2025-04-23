@@ -295,13 +295,16 @@ def eval_function(function : Function, tokens : Program, bf : bf_compiler, param
 
 def eval_expression(expression : Expression, tokens : Program, bf : bf_compiler, params : Any) -> Token:
     # Add variable types
+    if type(expression) == tuple:
+        expression = [expression]
+
     for i in range(len(expression)):
         if expression[i][0] == "var" and expression[i][1] == None and expression[i][2] in variables:
             expression[i] = (expression[i][0], variables[expression[i][2]], expression[i][2])
      
     # NOP return expression
-    if type(expression) == tuple:
-        return expression
+    if len(expression) == 1:
+        return expression[0]
 
     # Recursively run expressions
     current_expression = expression.copy()
@@ -545,7 +548,11 @@ def eval_expression(expression : Expression, tokens : Program, bf : bf_compiler,
         elif argt == ("int", "var"):
             return "var", "int", bf.mul(argv[1], argv[0])
         elif argt == ("int", "int"):
-            return "int", argv[0] * argv[1]    
+            return "int", argv[0] * argv[1]
+        elif argt == ("str", "int") or argt == ("char", "int"):
+            return "str", argv[0] * argv[1]
+        elif argt == ("int", "str") or argt == ("int", "char"):
+            return "str", argv[1] * argv[0]
         
     # DIV
     elif op == "/":
@@ -821,10 +828,10 @@ def compile():
 
     if DEBUG:
         print("[DEBUG] Return:", result, 
-            "\n[DEBUG] Variable List:", variables, "\n[DEBUG] Alias List:", aliases,
-            "\n[DEBUG] Function List:", functions,
+            "\n[DEBUG] Variable List:", [(n, t, bf.get(n)) for n, t in variables.items()], 
+            "\n[DEBUG] Alias List:", aliases, "\n[DEBUG] Function List:", functions,
             "\n[DEBUG] Used mem:", bf.used_mem, "\n[DEBUG] Used temp mem:", bf.used_temp,
             "\n[DEBUG] Pointer position:", bf.pointer)
-        
+
     bf.result(sys.argv[1][sys.argv[1].find("/")+1:sys.argv[1].find(".")], trimmed=not DEBUG)
 compile()

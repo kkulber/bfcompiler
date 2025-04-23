@@ -1,0 +1,110 @@
+DEAD_CELL @= "  ";
+DEAD @= 0;
+ALIVE_CELL @= "##";
+ALIVE @= 1;
+SIZE @= 12;
+
+arr<SIZE*SIZE> @ world;
+arr<SIZE*SIZE> @ new_world;
+
+int @ count;
+func @ draw_world = {
+	count = 0;
+    .("-" * SIZE * ^DEAD_CELL);
+    ."\n";
+	world [* {
+		~0 == DEAD ? { .DEAD_CELL; } !? { .ALIVE_CELL; };
+        ++count;
+        count % SIZE == 0 ? { ."|\n"; };
+	};
+    .("-" * SIZE * ^DEAD_CELL);
+    ."\n";
+};
+
+int @ cell_x;
+int @ cell_y;
+int @ tx;
+int @ ty;
+int @ neigh;
+func @ count_tl = {
+    cell_x != 0 ? { tx = cell_x - 1; } !? { tx = SIZE - 1; };
+    cell_y != 0 ? { ty = cell_y - 1; } !? { ty = SIZE - 1; };
+    world[(tx + ty * SIZE) == ALIVE ? { ++neigh; };
+};
+func @ count_t = {
+    cell_y != 0 ? { ty = cell_y - 1; } !? { ty = SIZE - 1; };
+    world[(cell_x + ty * SIZE) == ALIVE ? { ++neigh; };
+};
+func @ count_tr = {
+    cell_x != SIZE - 1 ? { tx = cell_x + 1; } !? { tx = 0; };
+    cell_y != 0 ? { ty = cell_y - 1; } !? { ty = SIZE - 1; };
+    world[(tx + ty * SIZE) == ALIVE ? { ++neigh; };
+};
+func @ count_l = {
+    cell_x != 0 ? { tx = cell_x - 1; } !? { tx = SIZE - 1; };
+    world[(tx + cell_y * SIZE) == ALIVE ? { ++neigh; };
+};
+func @ count_r = {
+    cell_x != SIZE - 1 ? { tx = cell_x + 1; } !? { tx = 0; };
+    world[(tx + cell_y * SIZE) == ALIVE ? { ++neigh; };
+};
+func @ count_bl = {
+    cell_x != 0 ? { tx = cell_x - 1; } !? { tx = SIZE - 1; };
+    cell_y != SIZE - 1 ? { ty = cell_y + 1; } !? { ty = 0; };
+    world[(tx + ty * SIZE) == ALIVE ? { ++neigh; };
+};
+func @ count_b = {
+    cell_y != SIZE - 1 ? { ty = cell_y + 1; } !? { ty = 0; };
+    world[(cell_x + ty * SIZE) == ALIVE ? { ++neigh; };
+};
+func @ count_br = {
+    cell_x != SIZE - 1 ? { tx = cell_x + 1; } !? { tx = 0; };
+    cell_y != SIZE - 1 ? { ty = cell_y + 1; } !? { ty = 0; };
+    world[(tx + ty * SIZE) == ALIVE ? { ++neigh; };
+};
+
+int @ index;
+func @ next_generation = {
+    { cell_y = 0; } : { cell_y != SIZE; } : { ++cell_y; } : {
+        { cell_x = 0; } : { cell_x != SIZE; } : { ++cell_x; } : {
+            neigh = 0;
+            ->count_tl;
+            ->count_t;
+            ->count_tr;
+            ->count_l;
+            ->count_r;
+            ->count_bl;
+            ->count_b;
+            ->count_br;
+            index = cell_x + cell_y * SIZE;
+            world[index == DEAD ? {
+                neigh == 3 ? { 
+                    new_world[index] = ALIVE; 
+                } !? {
+                    new_world[index] = DEAD;
+                };
+            } !? {
+                neigh <= 1 | neigh >= 4 ? { 
+                    new_world[index] = DEAD; 
+                } !? {
+                    new_world[index] = ALIVE;
+                };
+            };
+        };
+    };
+    world = new_world;
+};
+
+."Enter a world sequence: ";
+str<SIZE*SIZE+1> @ input = ,input;
+int @ i = 0;
+input [* {
+    ~0 == '1' ? { world[i] = ALIVE; };
+    ++i;
+};
+
+->draw_world;
+*! {
+    ->next_generation;
+    ->draw_world;
+};

@@ -69,7 +69,7 @@ class bf_compiler:
             depth = 0
             while i < len(self.code):
                 if i >= find and depth == 0:
-                    self.code = self.code[:i]
+                    self.code = self.code[:i+1]
                     break
                 if self.code[i] == "[":
                     depth += 1
@@ -275,7 +275,8 @@ class bf_compiler:
     def set(self, cell : Cell, value : Union[int, str], reset : bool = True, mode : Set_Mode = "NORMAL"):
         if type(value) == str:
             value = ord(value)
-        self.goto(cell)
+        if value:
+            self.goto(cell)
         if reset:
             self.reset(cell)
         if mode == "NORMAL":
@@ -292,6 +293,8 @@ class bf_compiler:
         self.algorithm("setLeft" if mode == "LEFT" else "setRight", value)
 
     def move(self, from_ : Cell, to : Cell, reset : bool = True, negate : bool = False):
+        if self.get(from_) == self.get(to):
+            return
         if reset: 
             self.reset(to)
         self.goto(from_)
@@ -304,6 +307,8 @@ class bf_compiler:
         self.code += "]"
 
     def copy(self, from_ : Cell, to : Cell, reset : bool = True, negate : bool = False, assign : bool = False):
+        if self.get(from_) == self.get(to):
+            return
         if assign and self.isTemp(from_):
             self.move(from_, to, reset=reset, negate=negate)
             self.free()
@@ -660,7 +665,7 @@ class bf_compiler:
         self.goto(self.arrAccessCell(arr, 3))
         self.algorithm("foreach", 2)
         self.reserved.remove(temp)
-        self.free()
+        self.free(reset=True)
 
     # IO
 
@@ -743,8 +748,8 @@ class bf_compiler:
             return
         if reset:
             self.resetArr(arr2)
-        self.set(self.arrAccessCell(arr1, 0), self.length(arr1), mode="LEFT")
-        self.set(self.arrAccessCell(arr1, 1), self.length(arr1), mode="LEFT")
+        self.set(self.arrAccessCell(arr1, 0), self.length(arr1), reset=False, mode="LEFT")
+        self.set(self.arrAccessCell(arr1, 1), self.length(arr1), reset=False, mode="LEFT")
         self.goto(self.arrAccessCell(arr1, 0))
         self.algorithm("copyArr", 0)
         self.gotoRel(self.index(arr2, 0) - self.index(arr1, 0) + 3)

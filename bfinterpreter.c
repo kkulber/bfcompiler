@@ -50,7 +50,7 @@ int main(int argc, char* argv[]){
 				pointer++;
 				break;
 			case '.':
-				printf("%c", tape[pointer]);
+				putchar(tape[pointer]);
 				break;
 			case ',':
 				tape[pointer] = getchar();

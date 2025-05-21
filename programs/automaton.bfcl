@@ -1,0 +1,46 @@
+arr<8> @ rule;
+int @ rule_dec = ,int;
+arr<8> @ remainders;
+
+i @= ~0;
+{ i = 7; } : { i != 255; } : { --i; } : {
+    rule[i] = (rule_dec % 2);
+    rule_dec = rule_dec / 2;
+};
+
+LENGTH @= 101;
+arr<LENGTH> @ tape;
+arr<LENGTH> @ new_tape;
+
+tape[LENGTH / 2] = 1;
+
+int @ l;
+int @ c;
+int @ r;
+
+*! {
+    tape [* {
+        i == 1 ? { ."#"; } !? { ." "; };
+    };
+    ."\n";
+    { i = 0; } : { i < LENGTH; } : { ++i; } : {
+        c = tape[i;
+        i == 0 ? { l = tape[(LENGTH - 1); } !? { l = tape[(i - 1); };
+        i == (LENGTH - 1) ? { r = tape[0; } !? { r = tape[(i + 1); };
+
+        l ? {
+            c ? {
+                r ? { new_tape[i] = (rule[0); } !? { new_tape[i] = (rule[1); };
+            } !? {
+                r ? { new_tape[i] = (rule[2); } !? { new_tape[i] = (rule[3); };
+            };
+        } !? {
+            c ? {
+                r ? { new_tape[i] = (rule[4); } !? { new_tape[i] = (rule[5); };
+            } !? {
+                r ? { new_tape[i] = (rule[6); } !? { new_tape[i] = (rule[7); };
+            };
+        };
+    };
+    tape = new_tape;
+};
